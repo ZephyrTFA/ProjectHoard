@@ -58,7 +58,13 @@ namespace Hoard2
 			Task OnReady() => Task.FromResult(ready = true);
 
 			DiscordClient.Ready += OnReady;
-			await DiscordClient.LoginAsync(TokenType.Bot, "OTQ2NzA2OTU1MzE2MTE3NTI0.Gy_ceZ.U8wF7_whVx76WMbXAABtUusZF3QkUDL1ulBOuM");
+			var token = Environment.GetEnvironmentVariable("PROJECT_HOARD_TOKEN");
+			if (token is null)
+			{
+				Logger.LogCritical("Must set PROJECT_HOARD_TOKEN");
+				return false;
+			}
+			await DiscordClient.LoginAsync(TokenType.Bot, token);
 			await DiscordClient.StartAsync();
 
 			var checksLeft = 5;
