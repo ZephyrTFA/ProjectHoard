@@ -18,8 +18,9 @@ namespace Hoard2
 		public static readonly Dictionary<ulong, Dictionary<string, ModuleBase>> ModuleCache = new Dictionary<ulong, Dictionary<string, ModuleBase>>();
 		public static readonly Dictionary<ulong, KeyValuePair<SocketApplicationCommand, MethodInfo>> ApplicationCommands = new Dictionary<ulong, KeyValuePair<SocketApplicationCommand, MethodInfo>>();
 
-		public static void StopWorker()
+		public static void StopWorker(int exitCode = 0)
 		{
+			Environment.ExitCode = exitCode;
 			HoardHost.StopAsync(CancellationToken.None);
 		}
 
@@ -248,7 +249,7 @@ namespace Hoard2
 			foreach (var guild in DiscordClient.Guilds.Select(guild => guild.Id))
 				foreach (var module in CheckLoadedModules(guild))
 					await LoadModule(guild, module, out _);
-			
+
 			// todo
 		}
 
@@ -305,6 +306,29 @@ namespace Hoard2
 				await module.DiscordClientOnMessageDeleted(arg1, arg2);
 		}
 
+		static async Task<bool> HandleSystemCommand(IMessage arg)
+		{
+			if (arg.Author.Id != 946283057915232337)
+				return false;
+
+			if (arg.Content.StartsWith("?load_hmd"))
+			{
+				if (!await LoadModule((arg.Channel as IGuildChannel)!.GuildId, arg.Content.Replace("?load_hmd", "").ToLower().Trim(), out var reason))
+					await arg.Channel.SendMessageAsync($"Failed to load module: {reason}");
+				else
+					await arg.Channel.SendMessageAsync("Loaded");
+				return true;
+			}
+
+			if (arg.Content == "?restart")
+			{
+				StopWorker();
+				return true;
+			}
+
+			return false;
+		}
+
 		static async Task DiscordClientOnMessageReceived(IMessage arg)
 		{
 			// why is this needed?
@@ -313,14 +337,8 @@ namespace Hoard2
 
 			if (arg.Channel is not IGuildChannel guildChannel)
 				return;
-			if (arg.Content.StartsWith("?load_hmd"))
-			{
-				if (!await LoadModule(guildChannel.GuildId, arg.Content.Replace("?load_hmd", "").ToLower().Trim(), out var reason))
-					await arg.Channel.SendMessageAsync($"Failed to load module: {reason}");
-				else
-					await arg.Channel.SendMessageAsync("Loaded");
+			if (await HandleSystemCommand(arg))
 				return;
-			}
 			foreach (var module in guildChannel.GuildId.GetModules())
 				await module.DiscordClientOnMessageReceived(arg);
 		}

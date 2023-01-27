@@ -7,6 +7,8 @@ WorkingDirectory=/opt/ProjectHoard/Hoard2
 ExecStartPre=/usr/bin/git pull --all --ff-only
 ExecStart=/usr/bin/dotnet run
 Environment=DOTNET_CLI_HOME=/tmp/ph
+Restart=on-success
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
