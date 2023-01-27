@@ -144,9 +144,11 @@ namespace Hoard2.Module
 			foreach (var (guild, modules) in CheckLoadedModules())
 			{
 				foreach (var module in modules)
-					LoadModule(guild, module, out _);
+					if (!LoadModule(guild, module, out var reason))
+						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", module, reason);
 				foreach (var systemModule in SystemModules)
-					LoadModule(guild, systemModule, out _);
+					if (!LoadModule(guild, systemModule, out var reason))
+						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", systemModule, reason);
 			}
 		}
 
