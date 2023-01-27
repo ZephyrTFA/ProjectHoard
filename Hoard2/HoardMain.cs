@@ -17,6 +17,7 @@ namespace Hoard2
 
 		public static readonly Dictionary<ulong, Dictionary<string, ModuleBase>> ModuleCache = new Dictionary<ulong, Dictionary<string, ModuleBase>>();
 		public static readonly Dictionary<ulong, KeyValuePair<SocketApplicationCommand, MethodInfo>> ApplicationCommands = new Dictionary<ulong, KeyValuePair<SocketApplicationCommand, MethodInfo>>();
+		public static readonly Dictionary<ulong, Dictionary<string, List<SocketApplicationCommand>>> ModuleCommands = new Dictionary<ulong, Dictionary<string, List<SocketApplicationCommand>>>();
 
 		public static void StopWorker(int exitCode = 0)
 		{
@@ -123,38 +124,61 @@ namespace Hoard2
 			DiscordClient.SlashCommandExecuted += DiscordClientOnSlashCommandExecuted;
 		}
 
-		public static Task<bool> LoadModule(ulong guild, string moduleId, out string reason)
+		public static bool UnloadModule(ulong guild, string moduleId, out string reason)
+		{
+			if (!ModuleCache[guild].ContainsKey(moduleId))
+			{
+				reason = "Module not loaded";
+				return false;
+			}
+
+			if (ModuleCommands.ContainsKey(guild) && ModuleCommands[guild].ContainsKey(moduleId))
+			{
+				foreach (var command in ModuleCommands[guild][moduleId])
+				{
+					ApplicationCommands.Remove(command.Id);
+					command.DeleteAsync().Wait();
+				}
+				ModuleCommands[guild].Remove(moduleId);
+			}
+
+			ModuleCache[guild].Remove(moduleId);
+			reason = String.Empty;
+			return true;
+		}
+
+		public static bool LoadModule(ulong guild, string moduleId, out string reason)
 		{
 			moduleId = moduleId.ToLower();
 			if (!ModuleHelper.Modules.TryGetValue(moduleId, out var moduleType))
 			{
 				reason = "Module not found";
-				return Task.FromResult(false);
+				return false;
 			}
 
 			if (!ModuleCache.ContainsKey(guild)) ModuleCache[guild] = new Dictionary<string, ModuleBase>();
 			if (ModuleCache[guild].ContainsKey(moduleId))
 			{
 				reason = "Module already loaded";
-				return Task.FromResult(false);
+				return false;
 			}
 
 			var moduleConstructor = moduleType.GetConstructor(new[] { typeof(ulong), typeof(string) });
 			if (moduleConstructor is null)
 			{
 				reason = "Module not valid";
-				return Task.FromResult(false);
+				return false;
 			}
 
 			try
 			{
-				if (!AssembleSlashCommands(moduleType, out reason))
-					return Task.FromResult(false);
+				if (!AssembleSlashCommands(guild, moduleId, moduleType, out reason))
+					return false;
 			}
 			catch (Exception exception)
 			{
 				reason = $"Exception during command assembly: {exception}";
-				return Task.FromResult(false);
+				return false;
 			}
 
 			var configDir = GetGuildConfigFolder(guild);
@@ -163,7 +187,7 @@ namespace Hoard2
 			ModuleCache[guild][moduleId] = moduleInstance;
 			reason = "Loaded successfully";
 			UpdateLoadedModules(guild);
-			return Task.FromResult(true);
+			return true;
 		}
 
 		static void UpdateLoadedModules(ulong guild)
@@ -185,7 +209,7 @@ namespace Hoard2
 			return (string[]?)new DataContractSerializer(typeof(string[])).ReadObject(reader) ?? Array.Empty<string>();
 		}
 
-		static bool AssembleSlashCommands(Type moduleType, out string reason)
+		static bool AssembleSlashCommands(ulong guild, string moduleId, Type moduleType, out string reason)
 		{
 			var moduleCommands = moduleType.GetMethods().Where(info => info.GetCustomAttribute<ModuleCommandAttribute>() is { })
 				.Select(info => new KeyValuePair<MethodInfo, ModuleCommandAttribute>(info, info.GetCustomAttribute<ModuleCommandAttribute>()!));
@@ -227,6 +251,9 @@ namespace Hoard2
 
 				var slashCommand = DiscordClient.CreateGlobalApplicationCommandAsync(slashCommandBuilder.Build(), new RequestOptions { RetryMode = RetryMode.AlwaysRetry }).GetAwaiter().GetResult();
 				ApplicationCommands[slashCommand.Id] = new KeyValuePair<SocketApplicationCommand, MethodInfo>(slashCommand, command);
+				if (!ModuleCommands.ContainsKey(guild)) ModuleCommands[guild] = new Dictionary<string, List<SocketApplicationCommand>>();
+				if (!ModuleCommands[guild].ContainsKey(moduleId)) ModuleCommands[guild][moduleId] = new List<SocketApplicationCommand>();
+				ModuleCommands[guild][moduleId].Add(slashCommand);
 			}
 
 			reason = String.Empty;
@@ -264,9 +291,7 @@ namespace Hoard2
 
 			foreach (var guild in DiscordClient.Guilds.Select(guild => guild.Id))
 				foreach (var module in CheckLoadedModules(guild))
-					await LoadModule(guild, module, out _);
-
-			// todo
+					LoadModule(guild, module, out _);
 		}
 
 		static async Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand arg)
@@ -329,10 +354,19 @@ namespace Hoard2
 
 			if (arg.Content.StartsWith("?load_hmd"))
 			{
-				if (!await LoadModule((arg.Channel as IGuildChannel)!.GuildId, arg.Content.Replace("?load_hmd", "").ToLower().Trim(), out var reason))
+				if (!LoadModule((arg.Channel as IGuildChannel)!.GuildId, arg.Content.Replace("?load_hmd", "").ToLower().Trim(), out var reason))
 					await arg.Channel.SendMessageAsync($"Failed to load module: {reason}");
 				else
 					await arg.Channel.SendMessageAsync("Loaded");
+				return true;
+			}
+
+			if (arg.Content.StartsWith("?unload_hmd"))
+			{
+				if (!UnloadModule(((IGuildChannel)arg.Channel).GuildId, arg.Content.Replace("?unload_hmd", "").ToLower().Trim(), out var reason))
+					await arg.Channel.SendMessageAsync($"Failed to unload module: {reason}");
+				else
+					await arg.Channel.SendMessageAsync("Unloaded");
 				return true;
 			}
 
