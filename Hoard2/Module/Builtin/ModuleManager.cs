@@ -5,7 +5,7 @@ namespace Hoard2.Module.Builtin
 {
 	public class ModuleManager : ModuleBase
 	{
-		public ModuleManager(ulong guildId, string configPath) : base(guildId, configPath) { }
+		public ModuleManager(string configPath) : base(configPath) { }
 
 		[ModuleCommand("load-hoard-module", "Load a module", GuildPermission.Administrator,
 			new[] { "module-id" },
@@ -15,7 +15,7 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Loading...");
 
-			if (!HoardMain.LoadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
+			if (!ModuleHelper.LoadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
 				await command.ModifyOriginalResponseAsync(properties => properties.Content = $"Failed to load module: {failReason}");
 			else
 				await command.RespondAsync("Loaded module.");
@@ -29,7 +29,7 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Unloading...");
 
-			if (!HoardMain.UnloadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
+			if (!ModuleHelper.UnloadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
 				await command.ModifyOriginalResponseAsync(properties => properties.Content = $"Failed to load module: {failReason}");
 			else
 				await command.RespondAsync("Loaded module.");

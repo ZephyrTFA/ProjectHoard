@@ -4,7 +4,7 @@ namespace Hoard2.Module.Builtin
 {
 	public class Kek : ModuleBase
 	{
-		public Kek(ulong guildId, string configPath) : base(guildId, configPath) { }
+		public Kek(string configPath) : base(configPath) { }
 
 		public override async Task DiscordClientOnMessageReceived(IMessage arg)
 		{

@@ -5,7 +5,7 @@ namespace Hoard2.Module.Builtin
 {
 	public class MemberLog : ModuleBase
 	{
-		public MemberLog(ulong guildId, string configPath) : base(guildId, configPath) { }
+		public MemberLog(string configPath) : base(configPath) { }
 
 		[ModuleCommand("set-member-log-channel", "Update the target channel for member logging", GuildPermission.Administrator,
 			new[] { "channel" },
@@ -19,9 +19,9 @@ namespace Hoard2.Module.Builtin
 			await command.RespondAsync(text: $"Updated the target log channel to <#{channel.Id}>");
 		}
 
-		public override async Task DiscordClientOnUserJoined(SocketGuildUser arg)
+		public override async Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser)
 		{
-			if (ModuleConfig.Get<ulong?>("log-channel") is not { } channelId)
+			if (ModuleConfig.GetTree(socketGuildUser.Guild.Id.ToString()).Get<ulong?>("log-channel") is not { } channelId)
 				return;
 			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);
 			if (channel is not IMessageChannel messageChannel)
@@ -31,22 +31,23 @@ namespace Hoard2.Module.Builtin
 			}
 
 			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
-				.WithAuthor(arg)
+				.WithAuthor(socketGuildUser)
 				.WithTimestamp(DateTimeOffset.UtcNow)
 				.WithColor(Color.Blue)
-				.WithTitle($"{arg.Username} has joined the Guild.")
-				.WithDescription($"<@!{arg.Id}>")
-				.WithImageUrl(arg.GetDisplayAvatarUrl())
-				.WithFields(new EmbedFieldBuilder().WithName("Total Members").WithValue(arg.Guild.MemberCount))
-				.WithFields(new EmbedFieldBuilder().WithName("Creation Date").WithValue(arg.CreatedAt))
-				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{arg.Id}"))
+				.WithTitle($"{socketGuildUser.Username} has joined the Guild.")
+				.WithDescription($"<@!{socketGuildUser.Id}>")
+				.WithImageUrl(socketGuildUser.GetDisplayAvatarUrl())
+				.WithFields(new EmbedFieldBuilder().WithName("Total Members").WithValue(socketGuildUser.Guild.MemberCount))
+				.WithFields(new EmbedFieldBuilder().WithName("Creation Date").WithValue(socketGuildUser.CreatedAt))
+				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{socketGuildUser.Id}"))
 				.Build());
 		}
 
-		public override async Task DiscordClientOnUserLeft(SocketUser arg)
+		public override async Task DiscordClientOnUserLeft(SocketGuild socketGuild, SocketUser socketUser)
 		{
-			if (ModuleConfig.Get<ulong?>("log-channel") is not { } channelId)
+			if (ModuleConfig.GetTree(socketGuild.Id.ToString()).Get<ulong?>("log-channel") is not { } channelId)
 				return;
+
 			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);
 			if (channel is not IMessageChannel messageChannel)
 			{
@@ -55,15 +56,15 @@ namespace Hoard2.Module.Builtin
 			}
 
 			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
-				.WithAuthor(arg)
+				.WithAuthor(socketUser)
 				.WithTimestamp(DateTimeOffset.UtcNow)
 				.WithColor(Color.DarkRed)
-				.WithTitle($"{arg.Username} has left the Guild.")
-				.WithDescription($"<@!{arg.Id}>")
-				.WithImageUrl(arg.GetAvatarUrl())
-				.WithFields(new EmbedFieldBuilder().WithName("Total Members").WithValue(HoardMain.DiscordClient.GetGuild(GuildID).MemberCount))
-				.WithFields(new EmbedFieldBuilder().WithName("Creation Date").WithValue(arg.CreatedAt))
-				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{arg.Id}"))
+				.WithTitle($"{socketUser.Username} has left the Guild.")
+				.WithDescription($"<@!{socketUser.Id}>")
+				.WithImageUrl(socketUser.GetAvatarUrl())
+				.WithFields(new EmbedFieldBuilder().WithName("Total Members").WithValue(socketGuild.MemberCount))
+				.WithFields(new EmbedFieldBuilder().WithName("Creation Date").WithValue(socketUser.CreatedAt))
+				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{socketUser.Id}"))
 				.Build());
 		}
 	}
