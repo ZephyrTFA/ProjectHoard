@@ -6,7 +6,7 @@ Wants=network-online.target
 WorkingDirectory=/opt/ProjectHoard/Hoard2
 ExecStartPre=/usr/bin/git pull --all --ff-only
 ExecStart=/usr/bin/dotnet run
-Environment="DOTNET_CLI_HOME=/opt/ProjectHoard/Hoard2"
+Environment=DOTNET_CLI_HOME=/tmp/ph
 
 [Install]
 WantedBy=multi-user.target
