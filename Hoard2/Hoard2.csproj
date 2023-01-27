@@ -9,16 +9,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Discord.Net.Commands" Version="3.9.0" />
-        <PackageReference Include="Discord.Net.Rest" Version="3.9.0" />
-        <PackageReference Include="Discord.Net.WebSocket" Version="3.9.0" />
-        <PackageReference Include="JetBrains.Annotations" Version="2022.3.1" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Content Include="..\.dockerignore">
-        <Link>.dockerignore</Link>
-      </Content>
+        <PackageReference Include="Discord.Net.Commands" Version="3.9.0"/>
+        <PackageReference Include="Discord.Net.Rest" Version="3.9.0"/>
+        <PackageReference Include="Discord.Net.WebSocket" Version="3.9.0"/>
+        <PackageReference Include="JetBrains.Annotations" Version="2022.3.1"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="7.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="7.0.0"/>
     </ItemGroup>
 </Project>

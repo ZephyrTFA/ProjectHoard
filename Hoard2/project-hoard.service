@@ -1,0 +1,11 @@
+﻿[Unit]
+Description=Project Hoard
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/ProjectHoard/Hoard2
+ExecStartPre=/usr/bin/git pull --all
+ExecStart=/usr/bin/dotnet run
+
+[Install]
+WantedBy=multi-user.target

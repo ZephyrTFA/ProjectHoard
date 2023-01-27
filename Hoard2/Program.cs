@@ -1,6 +1,7 @@
 using Hoard2;
 
-IHost host = Host.CreateDefaultBuilder(args)
+var host = Host.CreateDefaultBuilder(args)
+	.UseSystemd()
 	.ConfigureServices(services =>
 	{
 		services.AddHostedService<Worker>();
