@@ -18,6 +18,8 @@ namespace Hoard2.Module
 			"ModuleManager",
 		};
 
+		static bool _restoring;
+
 		public static void LoadAssembly(Assembly assembly, out List<string> errors)
 		{
 			errors = new List<string>();
@@ -105,7 +107,10 @@ namespace Hoard2.Module
 				{
 					HoardMain.Logger.LogInformation("Creating module {}", module);
 					ModuleUsageCount[module] = 0;
-					if (ModuleTypes[module].GetConstructor(new[] { typeof(string) })?.Invoke(new object?[] { Path.Join(HoardMain.DataDirectory.CreateSubdirectory("config").FullName, $"{module}.xml") }) is not ModuleBase newInstance)
+					if (ModuleTypes[module]
+							.GetConstructor(new[] { typeof(string) })?
+							.Invoke(new object?[] { HoardMain.DataDirectory.CreateSubdirectory("config").CreateSubdirectory(module).FullName })
+						is not ModuleBase newInstance)
 					{
 						failReason = "failed to find or invoke module constructor";
 						return false;
@@ -131,15 +136,16 @@ namespace Hoard2.Module
 
 		static void SaveLoadedModules()
 		{
+			if (_restoring) return;
 			var store = Path.Join(HoardMain.DataDirectory.FullName, "loaded.xml");
 			if (File.Exists(store)) File.Delete(store);
 			using var writer = File.OpenWrite(store);
 			new DataContractSerializer(typeof(Dictionary<ulong, List<string>>)).WriteObject(writer, GuildModules);
 			writer.Dispose();
 		}
-
 		public static void RestoreModules()
 		{
+			_restoring = true;
 			HoardMain.Logger.LogInformation("Restoring Modules");
 			foreach (var guild in HoardMain.DiscordClient.Guilds)
 				foreach (var systemModule in SystemModules)
@@ -150,6 +156,7 @@ namespace Hoard2.Module
 				foreach (var module in modules.Where(module => !SystemModules.Any(entry => entry.ToLower().Trim().Equals(module))))
 					if (!LoadModule(guild, module, out var reason))
 						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", module, reason);
+			_restoring = false;
 		}
 
 		static Dictionary<ulong, List<string>> CheckLoadedModules()

@@ -11,12 +11,16 @@ namespace Hoard2.Module
 	[SuppressMessage("Performance", "CA1822:Mark members as static")]
 	public class ModuleBase
 	{
+		string _configDirectory;
 		public ModuleBase(string configPath)
 		{
-			ModuleConfig = new ModuleConfig(configPath);
+			_configDirectory = configPath;
+			GlobalConfig = new ModuleConfig(Path.Join(_configDirectory, "0.xml"));
 		}
 
-		protected ModuleConfig ModuleConfig { get; init; }
+		protected ModuleConfig GlobalConfig { get; init; }
+
+		public ModuleConfig GuildConfig(ulong guild) => new ModuleConfig(Path.Join(_configDirectory, $"{guild}.xml"));
 
 		public virtual Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand socketSlashCommand) => Task.CompletedTask;
 

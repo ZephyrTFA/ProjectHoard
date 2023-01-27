@@ -14,8 +14,6 @@ namespace Hoard2.Module
 
 		FileInfo StoreInfo { get; }
 
-		public ModuleConfig GetTree(string key) => new ModuleConfig(Path.Join(StoreInfo.FullName.Replace(StoreInfo.Extension, ""), $"{key}.xml"));
-
 		public T? Get<T>(string key, T? defaultValue = default) => Has(key) ? (T?)_configData[key] : defaultValue;
 
 		public bool Has(string key) => _configData.ContainsKey(key);
