@@ -7,8 +7,7 @@ namespace Hoard2.Module
 {
 	public static class CommandHelper
 	{
-		public static readonly Dictionary<string, SlashCommandProperties> CachedProperties = new Dictionary<string, SlashCommandProperties>();
-		public static readonly Dictionary<string, SocketApplicationCommand> Commands = new Dictionary<string, SocketApplicationCommand>();
+		public static readonly Dictionary<string, Dictionary<ulong, SocketApplicationCommand>> GuildCommands = new Dictionary<string, Dictionary<ulong, SocketApplicationCommand>>();
 		public static readonly Dictionary<string, ModuleBase> CommandOwner = new Dictionary<string, ModuleBase>();
 		public static readonly Dictionary<string, MethodInfo> CommandExecutor = new Dictionary<string, MethodInfo>();
 
@@ -19,7 +18,7 @@ namespace Hoard2.Module
 			await (Task)executor.Invoke(null, new object?[] { command })!;
 		}
 
-		public static bool RefreshModuleCommands(ModuleBase module, out string reason)
+		public static bool RefreshModuleCommands(ulong guild, ModuleBase module, out string reason)
 		{
 			HoardMain.Logger.LogInformation("Refreshing module commands for {}", module);
 			var moduleCommands = module.GetType().GetMethods().Where(info => info.GetCustomAttribute<ModuleCommandAttribute>() is { })
@@ -70,35 +69,34 @@ namespace Hoard2.Module
 				}
 
 				var commandProps = slashCommandBuilder.Build();
-				if (CachedProperties.ContainsKey(commandName))
+				if (!GuildCommands.ContainsKey(commandName)) GuildCommands[commandName] = new Dictionary<ulong, SocketApplicationCommand>();
+				if (GuildCommands[commandName].TryGetValue(guild, out var existingCommand))
 				{
-					HoardMain.Logger.LogInformation("Resetting command {}", commandName);
-					if (CachedProperties[commandName].Equals(commandProps))
-						continue;
-					Commands[commandName].DeleteAsync().Wait();
+					existingCommand.DeleteAsync().Wait();
+					HoardMain.Logger.LogInformation("Removing guild old command");
 				}
-				else
-					HoardMain.Logger.LogInformation("Creating command {}", commandName);
+				HoardMain.Logger.LogInformation("Creating command {}", commandName);
 
-				Commands[commandName] = HoardMain.DiscordClient.CreateGlobalApplicationCommandAsync(commandProps).GetAwaiter().GetResult();
+				var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
+				var commandInstance = guildInstance.CreateApplicationCommandAsync(commandProps,
+					new RequestOptions { RetryMode = RetryMode.RetryRatelimit }).GetAwaiter().GetResult();
+				GuildCommands[commandName].Add(guild, commandInstance);
+
+				// These will get reset everytime a guild is loaded, oh well!
 				CommandExecutor[commandName] = command;
 				CommandOwner[commandName] = module;
-				CachedProperties[commandName] = commandProps;
 			}
 
 			reason = String.Empty;
 			return true;
 		}
 
-		public static async Task WipeModuleCommands(ModuleBase module)
+		public static void ClearModuleCommands(ulong guild, ModuleBase module)
 		{
 			foreach (var command in CommandOwner.Where(kvp => kvp.Value == module).Select(kvp => kvp.Key))
 			{
-				await Commands[command].DeleteAsync();
-				Commands.Remove(command);
-				CommandExecutor.Remove(command);
-				CommandOwner.Remove(command);
-				CachedProperties.Remove(command);
+				if (!GuildCommands[command].TryGetValue(guild, out var commandInstance)) continue;
+				commandInstance.DeleteAsync().Wait();
 			}
 		}
 

@@ -61,18 +61,18 @@ namespace Hoard2.Module
 
 			var instance = ModuleInstances[module];
 			if (!instance.TryUnload(guild, out failReason)) return false;
+			CommandHelper.ClearModuleCommands(guild, instance);
 			guildModules.Remove(module);
 			ModuleUsageCount[module] -= 1;
 
 			if (ModuleUsageCount[module] == 0)
-				HandleModuleDestroy(instance).Wait();
+				HandleModuleDestroy(instance);
 			SaveLoadedModules();
 			return true;
 		}
 
-		public static async Task HandleModuleDestroy(ModuleBase module)
+		public static void HandleModuleDestroy(ModuleBase module)
 		{
-			await CommandHelper.WipeModuleCommands(module);
 			var moduleName = module.GetType().Name.ToLower().Trim();
 			ModuleInstances.Remove(moduleName);
 			ModuleUsageCount.Remove(moduleName);
@@ -111,7 +111,7 @@ namespace Hoard2.Module
 						return false;
 					}
 
-					if (!CommandHelper.RefreshModuleCommands(newInstance, out failReason)) return false;
+					if (!CommandHelper.RefreshModuleCommands(guild, newInstance, out failReason)) return false;
 					ModuleInstances[module] = instance = newInstance;
 				}
 
