@@ -143,7 +143,8 @@ namespace Hoard2
 			}
 
 			ModuleCache[guild].Remove(moduleId);
-			reason = String.Empty;
+			reason = "Unloaded successfully";
+			UpdateLoadedModules(guild);
 			return true;
 		}
 
