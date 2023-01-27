@@ -4,6 +4,7 @@ namespace Hoard2.Module
 {
 	public class ModuleConfig
 	{
+		Dictionary<string, object> _configData = new Dictionary<string, object>();
 		public ModuleConfig(string filePath)
 		{
 			StoreInfo = new FileInfo(filePath);
@@ -12,8 +13,6 @@ namespace Hoard2.Module
 		}
 
 		FileInfo StoreInfo { get; }
-
-		Dictionary<string, object?> _configData = new Dictionary<string, object?>();
 
 		public T? Get<T>(string key, T? defaultValue = default) => Has(key) ? (T?)_configData[key] : defaultValue;
 
@@ -27,6 +26,7 @@ namespace Hoard2.Module
 
 		public void Set<T>(string key, T setValue)
 		{
+			if (setValue is null) throw new NullReferenceException();
 			_configData[key] = setValue;
 			Save();
 		}
@@ -43,7 +43,7 @@ namespace Hoard2.Module
 			if (StoreInfo.Exists)
 				StoreInfo.Delete();
 			using var writer = StoreInfo.Create();
-			var binary = new DataContractSerializer(_configData.GetType());
+			var binary = new DataContractSerializer(typeof(Dictionary<string, object>));
 			binary.WriteObject(writer, _configData);
 			writer.Dispose();
 		}
@@ -55,7 +55,7 @@ namespace Hoard2.Module
 			using var reader = StoreInfo.OpenRead();
 			var binary = new DataContractSerializer(_configData.GetType());
 			var read = binary.ReadObject(reader);
-			_configData = (Dictionary<string, object?>?)read ?? throw new IOException($"Failed to read config for {GetType().FullName}");
+			_configData = (Dictionary<string, object>?)read ?? throw new IOException($"Failed to read config for {GetType().FullName}");
 		}
 	}
 }
