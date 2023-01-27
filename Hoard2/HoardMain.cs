@@ -83,7 +83,7 @@ namespace Hoard2
 			}
 
 			DiscordClient.Ready += OnReady;
-			await DiscordClient.LoginAsync(TokenType.Bot, token);
+			await DiscordClient.LoginAsync(TokenType.Bot, token.Trim('\n', ' ', '\t', '\r'));
 			await DiscordClient.StartAsync();
 
 			var checksLeft = 5;

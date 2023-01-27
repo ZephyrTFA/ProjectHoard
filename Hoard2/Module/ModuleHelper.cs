@@ -141,16 +141,15 @@ namespace Hoard2.Module
 		public static void RestoreModules()
 		{
 			HoardMain.Logger.LogInformation("Restoring Modules");
-			foreach (var (guild, modules) in CheckLoadedModules())
-			{
-				foreach (var module in modules)
-					if (!LoadModule(guild, module, out var reason))
-						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", module, reason);
-			}
 			foreach (var guild in HoardMain.DiscordClient.Guilds)
 				foreach (var systemModule in SystemModules)
 					if (!LoadModule(guild.Id, systemModule, out var reason))
-						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", systemModule, reason);
+						HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", systemModule, reason);
+
+			foreach (var (guild, modules) in CheckLoadedModules())
+				foreach (var module in modules.Where(module => !SystemModules.Any(entry => entry.ToLower().Trim().Equals(module))))
+					if (!LoadModule(guild, module, out var reason))
+						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", module, reason);
 		}
 
 		static Dictionary<ulong, List<string>> CheckLoadedModules()

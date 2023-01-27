@@ -18,7 +18,7 @@ namespace Hoard2.Module.Builtin
 			if (!ModuleHelper.LoadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
 				await command.ModifyOriginalResponseAsync(properties => properties.Content = $"Failed to load module: {failReason}");
 			else
-				await command.RespondAsync("Loaded module.");
+				await command.ModifyOriginalResponseAsync(properties => properties.Content = "Loaded module.");
 		}
 
 		[ModuleCommand("unload-hoard-module", "Unload a module", GuildPermission.Administrator,
@@ -32,7 +32,7 @@ namespace Hoard2.Module.Builtin
 			if (!ModuleHelper.UnloadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
 				await command.ModifyOriginalResponseAsync(properties => properties.Content = $"Failed to load module: {failReason}");
 			else
-				await command.RespondAsync("Loaded module.");
+				await command.ModifyOriginalResponseAsync(properties => properties.Content = "Loaded module.");
 		}
 	}
 }
