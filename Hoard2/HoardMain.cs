@@ -136,7 +136,6 @@ namespace Hoard2
 
 			ModuleHelper.ModuleTypes.Clear();
 			ModuleHelper.LoadAssembly(Assembly.GetExecutingAssembly(), out _);
-
 			ModuleHelper.RestoreModules();
 		}
 

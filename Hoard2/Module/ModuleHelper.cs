@@ -146,10 +146,11 @@ namespace Hoard2.Module
 				foreach (var module in modules)
 					if (!LoadModule(guild, module, out var reason))
 						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", module, reason);
-				foreach (var systemModule in SystemModules)
-					if (!LoadModule(guild, systemModule, out var reason))
-						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", systemModule, reason);
 			}
+			foreach (var guild in HoardMain.DiscordClient.Guilds)
+				foreach (var systemModule in SystemModules)
+					if (!LoadModule(guild.Id, systemModule, out var reason))
+						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", systemModule, reason);
 		}
 
 		static Dictionary<ulong, List<string>> CheckLoadedModules()
