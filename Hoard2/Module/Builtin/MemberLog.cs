@@ -15,8 +15,18 @@ namespace Hoard2.Module.Builtin
 		{
 			if (command.Data.Options.FirstOrDefault()?.Value is not IChannel channel)
 				throw new InvalidDataException();
-			ModuleConfig.Set("log-channel", channel.Id);
+			ModuleConfig.GetTree(command.GuildId.ToString()!).Set("log-channel", channel.Id);
 			await command.RespondAsync(text: $"Updated the target log channel to <#{channel.Id}>");
+		}
+
+		[ModuleCommand("check-member-log-channel", "Check the current target channel", GuildPermission.Administrator)]
+		public async Task CheckMemberLogChannel(SocketSlashCommand command)
+		{
+			var current = ModuleConfig.GetTree(command.GuildId.ToString()!).Get<ulong?>("log-channel");
+			if (current is { })
+				await command.RespondAsync($"Currently logging to <#{current}>");
+			else
+				await command.RespondAsync("Target channel is not set.");
 		}
 
 		public override async Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser)
