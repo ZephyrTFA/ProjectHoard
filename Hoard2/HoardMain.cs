@@ -286,7 +286,7 @@ namespace Hoard2
 
 		static async Task DiscordClientOnUserJoined(SocketGuildUser arg)
 		{
-			foreach (var module in arg.Id.GetModules())
+			foreach (var module in arg.Guild.Id.GetModules())
 				await module.DiscordClientOnUserJoined(arg);
 		}
 
@@ -320,14 +320,24 @@ namespace Hoard2
 				return true;
 			}
 
-			if (arg.Content == "?hoard_restart")
+			switch (arg.Content)
 			{
-				await arg.Channel.SendMessageAsync("Restarting...");
-				StopWorker();
-				return true;
+				case "?hoard_restart":
+					await arg.Channel.SendMessageAsync("Restarting...");
+					Logger.LogInformation("Restarting...");
+					StopWorker();
+					return true;
+
+				case "?hoard_shutdown":
+					await arg.Channel.SendMessageAsync("Shutting down...");
+					Logger.LogInformation("Shutting down gracefully...");
+					StopWorker(69);
+					return true;
+
+				default:
+					return false;
 			}
 
-			return false;
 		}
 
 		static async Task DiscordClientOnMessageReceived(IMessage arg)
