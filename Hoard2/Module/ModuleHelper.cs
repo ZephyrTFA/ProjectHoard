@@ -158,8 +158,7 @@ namespace Hoard2.Module
 			if (!File.Exists(store))
 				return new Dictionary<ulong, List<string>>();
 			using var reader = File.OpenRead(store);
-			return new DataContractSerializer(typeof(Dictionary<ulong, List<string>>)).ReadObject(reader) as Dictionary<ulong, List<string>>
-				?? new Dictionary<ulong, List<string>>();
+			return (new DataContractSerializer(typeof(Dictionary<ulong, List<string>>)).ReadObject(reader) as Dictionary<ulong, List<string>>)!;
 		}
 
 		internal static async Task DiscordClientOnUserLeft(SocketGuild arg1, SocketUser arg2)
