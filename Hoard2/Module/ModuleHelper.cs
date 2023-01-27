@@ -205,5 +205,21 @@ namespace Hoard2.Module
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnMessageReceived(message);
 		}
+
+		internal static Task JoinedGuild(SocketGuild guild)
+		{
+			foreach (var systemModule in SystemModules)
+				if (!LoadModule(guild.Id, systemModule, out var reason))
+					HoardMain.Logger.LogCritical("Failed to load system module {}: {}", systemModule, reason);
+			return Task.CompletedTask;
+		}
+
+		internal static Task LeftGuild(SocketGuild guild)
+		{
+			if (!GuildModules.TryGetValue(guild.Id, out _)) return Task.CompletedTask;
+			GuildModules.Remove(guild.Id);
+			SaveLoadedModules();
+			return Task.CompletedTask;
+		}
 	}
 }

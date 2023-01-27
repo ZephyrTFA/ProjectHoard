@@ -15,7 +15,7 @@ namespace Hoard2.Module
 		{
 			if (!CommandExecutor.TryGetValue(command.CommandName, out var executor))
 				return;
-			await (Task)executor.Invoke(null, new object?[] { command })!;
+			await (Task)executor.Invoke(CommandOwner[command.CommandName], new object?[] { command })!;
 		}
 
 		public static bool RefreshModuleCommands(ulong guild, ModuleBase module, out string reason)
@@ -29,6 +29,12 @@ namespace Hoard2.Module
 				if (command.ReturnType != typeof(Task))
 				{
 					reason = "command function does not return Task";
+					return false;
+				}
+				var parameters = command.GetParameters();
+				if (parameters.Length != 1 || parameters[0].ParameterType != typeof(SocketSlashCommand))
+				{
+					reason = "command function expects one paramter of SocketSlashCommand";
 					return false;
 				}
 
