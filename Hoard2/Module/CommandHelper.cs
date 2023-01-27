@@ -21,6 +21,7 @@ namespace Hoard2.Module
 
 		public static bool RefreshModuleCommands(ModuleBase module, out string reason)
 		{
+			HoardMain.Logger.LogInformation("Refreshing module commands for {}", module);
 			var moduleCommands = module.GetType().GetMethods().Where(info => info.GetCustomAttribute<ModuleCommandAttribute>() is { })
 				.Select(info => new KeyValuePair<MethodInfo, ModuleCommandAttribute>(info, info.GetCustomAttribute<ModuleCommandAttribute>()!));
 
@@ -71,10 +72,13 @@ namespace Hoard2.Module
 				var commandProps = slashCommandBuilder.Build();
 				if (CachedProperties.ContainsKey(commandName))
 				{
+					HoardMain.Logger.LogInformation("Resetting command {}", commandName);
 					if (CachedProperties[commandName].Equals(commandProps))
 						continue;
 					Commands[commandName].DeleteAsync().Wait();
 				}
+				else
+					HoardMain.Logger.LogInformation("Creating command {}", commandName);
 
 				Commands[commandName] = HoardMain.DiscordClient.CreateGlobalApplicationCommandAsync(commandProps).GetAwaiter().GetResult();
 				CommandExecutor[commandName] = command;

@@ -103,6 +103,7 @@ namespace Hoard2.Module
 				// if an instance doesn't exist, create one
 				if (!ModuleInstances.TryGetValue(module, out var instance))
 				{
+					HoardMain.Logger.LogInformation("Creating module {}", module);
 					ModuleUsageCount[module] = 0;
 					if (ModuleTypes[module].GetConstructor(Array.Empty<Type>())?.Invoke(Array.Empty<object>()) is not ModuleBase newInstance)
 					{
@@ -139,6 +140,7 @@ namespace Hoard2.Module
 
 		public static void RestoreModules()
 		{
+			HoardMain.Logger.LogInformation("Restoring Modules");
 			foreach (var (guild, modules) in CheckLoadedModules())
 			{
 				foreach (var module in modules)
