@@ -320,8 +320,9 @@ namespace Hoard2
 				return true;
 			}
 
-			if (arg.Content == "?restart")
+			if (arg.Content == "?hoard_restart")
 			{
+				await arg.Channel.SendMessageAsync("Restarting...");
 				StopWorker();
 				return true;
 			}
