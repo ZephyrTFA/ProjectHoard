@@ -5,6 +5,8 @@ namespace Hoard2.Module.Builtin
 {
 	public class MemberLog : ModuleBase
 	{
+		public MemberLog(ulong guildId, string configPath) : base(guildId, configPath) { }
+
 		[ModuleCommand("set-member-log-channel", "Update the target channel for member logging", GuildPermission.Administrator,
 			new[] { "channel" },
 			new[] { typeof(IChannel) },
@@ -16,44 +18,6 @@ namespace Hoard2.Module.Builtin
 			ModuleConfig.Set("log-channel", channel.Id);
 			await command.RespondAsync(text: $"Updated the target log channel to <#{channel.Id}>");
 		}
-
-		[ModuleCommand("debug", "debug something", GuildPermission.Administrator,
-			new[] { "debug-target" },
-			new[] { typeof(string) },
-			new[] { "debugging target" })]
-		public async Task DebugCommand(SocketSlashCommand command)
-		{
-			switch (command.Data.Options.FirstOrDefault()?.Value ?? String.Empty)
-			{
-				case "join":
-					if (ModuleConfig.Get<ulong?>("log-channel") is not { })
-					{
-						await command.RespondAsync("Log Channel not set");
-						return;
-					}
-
-					await DiscordClientOnUserJoined(command.User as SocketGuildUser ?? throw new InvalidOperationException());
-					await command.RespondAsync("Debugging Join");
-					return;
-				
-				case "leave":
-					if (ModuleConfig.Get<ulong?>("log-channel") is not { })
-					{
-						await command.RespondAsync("Log Channel not set");
-						return;
-					}
-
-					await DiscordClientOnUserLeft(command.User);
-					await command.RespondAsync("Debugging Leave");
-					return;
-
-				default:
-					await command.RespondAsync("Not implemented");
-					return;
-			}
-		}
-
-		public MemberLog(ulong guildId, string configPath) : base(guildId, configPath) { }
 
 		public override async Task DiscordClientOnUserJoined(SocketGuildUser arg)
 		{
