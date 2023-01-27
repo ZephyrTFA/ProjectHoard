@@ -5,7 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>dotnet-Hoard2-F597A4BC-CBAE-47F6-9370-EE6DE811865C</UserSecretsId>
-        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <ImplicitUsings>true</ImplicitUsings>
     </PropertyGroup>
 
     <ItemGroup>
