@@ -26,7 +26,10 @@ namespace Hoard2
 
 		public static void Initialize(ILogger<Worker> log, CancellationToken workerToken)
 		{
-			DiscordClient = new DiscordSocketClient();
+			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
+			{
+				GatewayIntents = GatewayIntents.All,
+			});
 			Logger = log;
 			DiscordClient.Log += HandleDiscordLog;
 			DataDirectory = new DirectoryInfo($"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)}/ProjectHoard");
