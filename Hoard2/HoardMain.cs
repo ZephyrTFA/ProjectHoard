@@ -19,6 +19,11 @@ namespace Hoard2
 		public static readonly Dictionary<ulong, KeyValuePair<SocketApplicationCommand, MethodInfo>> ApplicationCommands = new Dictionary<ulong, KeyValuePair<SocketApplicationCommand, MethodInfo>>();
 		public static readonly Dictionary<ulong, Dictionary<string, List<SocketApplicationCommand>>> ModuleCommands = new Dictionary<ulong, Dictionary<string, List<SocketApplicationCommand>>>();
 
+		public static readonly IReadOnlyList<string> SystemModules = new List<string>
+		{
+			"ModuleManager",
+		}.AsReadOnly();
+
 		public static void StopWorker(int exitCode = 0)
 		{
 			Environment.ExitCode = exitCode;
@@ -129,6 +134,12 @@ namespace Hoard2
 
 		public static bool UnloadModule(ulong guild, string moduleId, out string reason)
 		{
+			if (SystemModules.Any(entry => entry.ToLower().Equals(moduleId.ToLower())))
+			{
+				reason = "Cannot unload a system module";
+				return false;
+			}
+
 			if (!ModuleCache[guild].ContainsKey(moduleId))
 			{
 				reason = "Module not loaded";
@@ -236,18 +247,20 @@ namespace Hoard2
 
 				for (var param = 0; param < paramCount; param++)
 				{
-					var optionType = data.CommandParamTypes[param].AsOptionType();
-					if (!optionType.HasValue)
+					var optTypeInfo = data.CommandParamTypes[param].AsOptionType();
+					if (!optTypeInfo.HasValue)
 					{
 						reason = $"Not a known option type: {data.CommandParamTypes[param]}";
 						return false;
 					}
+					var (required, optionType) = optTypeInfo.Value;
 
 					var option = new SlashCommandOptionBuilder
 					{
 						Name = data.CommandParamNames[param],
-						Type = optionType.Value,
+						Type = optionType,
 						Description = data.CommandParamDescriptions[param],
+						IsRequired = required,
 					};
 
 					slashCommandBuilder.AddOption(option);
@@ -266,22 +279,43 @@ namespace Hoard2
 
 		public static string GetGuildConfigFolder(ulong guild) => DataDirectory.CreateSubdirectory(guild.ToString()).FullName;
 
-		static ApplicationCommandOptionType? AsOptionType(this Type type)
+		static(bool, ApplicationCommandOptionType)? AsOptionType(this Type type)
 		{
 			if (type == typeof(bool))
-				return ApplicationCommandOptionType.Boolean;
+				return (true, ApplicationCommandOptionType.Boolean);
+			if (type == typeof(Optional<bool>))
+				return (false, ApplicationCommandOptionType.Boolean);
+
 			if (type == typeof(IChannel))
-				return ApplicationCommandOptionType.Channel;
+				return (true, ApplicationCommandOptionType.Channel);
+			if (type == typeof(Optional<IChannel>))
+				return (false, ApplicationCommandOptionType.Channel);
+
 			if (type == typeof(long))
-				return ApplicationCommandOptionType.Integer;
+				return (true, ApplicationCommandOptionType.Integer);
+			if (type == typeof(Optional<long>))
+				return (false, ApplicationCommandOptionType.Integer);
+
 			if (type == typeof(double))
-				return ApplicationCommandOptionType.Number;
+				return (true, ApplicationCommandOptionType.Number);
+			if (type == typeof(Optional<double>))
+				return (false, ApplicationCommandOptionType.Number);
+
 			if (type == typeof(IRole))
-				return ApplicationCommandOptionType.Role;
+				return (true, ApplicationCommandOptionType.Role);
+			if (type == typeof(Optional<IRole>))
+				return (false, ApplicationCommandOptionType.Role);
+
 			if (type == typeof(string))
-				return ApplicationCommandOptionType.String;
+				return (true, ApplicationCommandOptionType.String);
+			if (type == typeof(Optional<string>))
+				return (false, ApplicationCommandOptionType.String);
+
 			if (type == typeof(IUser))
-				return ApplicationCommandOptionType.User;
+				return (true, ApplicationCommandOptionType.User);
+			if (type == typeof(Optional<IUser>))
+				return (false, ApplicationCommandOptionType.User);
+
 			return null;
 		}
 
@@ -294,8 +328,12 @@ namespace Hoard2
 			ModuleHelper.LoadAssembly(Assembly.GetExecutingAssembly(), out _);
 
 			foreach (var guild in DiscordClient.Guilds.Select(guild => guild.Id))
+			{
 				foreach (var module in CheckLoadedModules(guild))
 					LoadModule(guild, module, out _);
+				foreach (var systemModule in SystemModules)
+					LoadModule(guild, systemModule, out _);
+			}
 		}
 
 		static async Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand arg)
