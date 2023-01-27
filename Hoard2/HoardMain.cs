@@ -22,6 +22,7 @@ namespace Hoard2
 		public static void StopWorker(int exitCode = 0)
 		{
 			Environment.ExitCode = exitCode;
+			Shutdown().Wait();
 			HoardHost.StopAsync(CancellationToken.None);
 		}
 
@@ -110,6 +111,8 @@ namespace Hoard2
 
 		public static async Task Shutdown()
 		{
+			if (DiscordClient.ConnectionState != ConnectionState.Connected)
+				return;
 			await DiscordClient.SetStatusAsync(UserStatus.Offline);
 			await DiscordClient.StopAsync();
 		}
