@@ -61,13 +61,26 @@ namespace Hoard2
 			var ready = false;
 			Task OnReady() => Task.FromResult(ready = true);
 
-			DiscordClient.Ready += OnReady;
-			var token = Environment.GetEnvironmentVariable("PROJECT_HOARD_TOKEN");
-			if (token is null)
+			string token;
+			var tokenFile = Path.Join(DataDirectory.FullName, "hoard.token");
+			if (!File.Exists(tokenFile))
 			{
-				Logger.LogCritical("Must set PROJECT_HOARD_TOKEN");
-				return false;
+				if (Environment.GetEnvironmentVariable("PROJECT_HOARD_TOKEN", EnvironmentVariableTarget.Process) is { } envToken)
+				{
+					token = envToken;
+				}
+				else
+				{
+					Logger.LogCritical("Must populate '{TokenFile}' on disk or PROJECT_HOARD_TOKEN as an env var", tokenFile);
+					return false;
+				}
 			}
+			else
+			{
+				token = await File.ReadAllTextAsync(tokenFile);
+			}
+
+			DiscordClient.Ready += OnReady;
 			await DiscordClient.LoginAsync(TokenType.Bot, token);
 			await DiscordClient.StartAsync();
 
