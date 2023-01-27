@@ -140,8 +140,12 @@ namespace Hoard2.Module
 		public static void RestoreModules()
 		{
 			foreach (var (guild, modules) in CheckLoadedModules())
+			{
 				foreach (var module in modules)
 					LoadModule(guild, module, out _);
+				foreach (var systemModule in SystemModules)
+					LoadModule(guild, systemModule, out _);
+			}
 		}
 
 		static Dictionary<ulong, List<string>> CheckLoadedModules()
