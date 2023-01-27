@@ -105,7 +105,7 @@ namespace Hoard2.Module
 				{
 					HoardMain.Logger.LogInformation("Creating module {}", module);
 					ModuleUsageCount[module] = 0;
-					if (ModuleTypes[module].GetConstructor(Array.Empty<Type>())?.Invoke(Array.Empty<object>()) is not ModuleBase newInstance)
+					if (ModuleTypes[module].GetConstructor(new[] { typeof(string) })?.Invoke(new object?[] { Path.Join(HoardMain.DataDirectory.CreateSubdirectory("config").FullName, $"{module}.xml") }) is not ModuleBase newInstance)
 					{
 						failReason = "failed to find or invoke module constructor";
 						return false;
