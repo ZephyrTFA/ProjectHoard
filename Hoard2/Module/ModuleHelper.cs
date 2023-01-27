@@ -13,12 +13,15 @@ namespace Hoard2.Module
 		public static readonly Dictionary<ulong, List<string>> GuildModules = new Dictionary<ulong, List<string>>();
 		public static readonly Dictionary<string, uint> ModuleUsageCount = new Dictionary<string, uint>();
 
-		public static IReadOnlyList<string> SystemModules = new[]
+		public static readonly IReadOnlyList<string> SystemModules = new[]
 		{
 			"ModuleManager",
+			"UserDataHelper",
 		};
 
 		static bool _restoring;
+
+		public static T? GetModuleInstance<T>() where T : ModuleBase => (T?)ModuleInstances.Select(kvp => kvp.Value).FirstOrDefault(module => module.GetType() == typeof(T));
 
 		public static void LoadAssembly(Assembly assembly, out List<string> errors)
 		{

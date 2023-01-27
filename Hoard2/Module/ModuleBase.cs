@@ -22,6 +22,8 @@ namespace Hoard2.Module
 
 		public ModuleConfig GuildConfig(ulong guild) => new ModuleConfig(Path.Join(_configDirectory, $"{guild}.xml"));
 
+		public ModuleConfig CustomConfig(string key) => new ModuleConfig(Path.Join(_configDirectory, "custom", key));
+
 		public virtual Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand socketSlashCommand) => Task.CompletedTask;
 
 		public virtual Task DiscordClientOnUserLeft(SocketGuild socketGuild, SocketUser socketUser) => Task.CompletedTask;
@@ -66,11 +68,25 @@ namespace Hoard2.Module
 			if (commandParamDescriptions is { }) CommandParamDescriptions = commandParamDescriptions;
 		}
 
+		public ModuleCommandAttribute(string commandName,
+																	string commandDescription,
+																	string[]? commandParamNames = null,
+																	Type[]? commandParamTypes = null,
+																	string[]? commandParamDescriptions = null)
+		{
+			CommandName = commandName.ToLower();
+			CommandDescription = commandDescription;
+			CommandPermissionRequirements = null;
+			if (commandParamNames is { }) CommandParamNames = commandParamNames;
+			if (commandParamTypes is { }) CommandParamTypes = commandParamTypes;
+			if (commandParamDescriptions is { }) CommandParamDescriptions = commandParamDescriptions;
+		}
+
 		public string CommandName { get; init; }
 
 		public string CommandDescription { get; init; }
 
-		public GuildPermission CommandPermissionRequirements { get; init; }
+		public GuildPermission? CommandPermissionRequirements { get; init; }
 
 		public string[] CommandParamNames { get; init; } = Array.Empty<string>();
 

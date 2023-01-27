@@ -7,7 +7,10 @@ namespace Hoard2.Module
 		Dictionary<string, object> _configData = new Dictionary<string, object>();
 		public ModuleConfig(string filePath)
 		{
-			StoreInfo = new FileInfo(filePath);
+			StoreInfo = new FileInfo(Path.GetFullPath(filePath));
+			if (!StoreInfo.Directory!.Exists)
+				StoreInfo.Directory.Create();
+
 			if (StoreInfo.Exists)
 				Read();
 		}
