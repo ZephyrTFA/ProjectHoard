@@ -15,7 +15,18 @@ namespace Hoard2.Module
 		{
 			if (!CommandExecutor.TryGetValue(command.CommandName, out var executor))
 				return;
-			await (Task)executor.Invoke(CommandOwner[command.CommandName], new object?[] { command })!;
+			var executorTask = (Task)executor.Invoke(CommandOwner[command.CommandName], new object?[] { command })!;
+			try
+			{
+				await executorTask.WaitAsync(TimeSpan.FromSeconds(5));
+			}
+			catch (TimeoutException)
+			{
+				const string message = "Command failed execution due to a timeout. A slash command cannot take longer than five seconds to return control to the Gateway.";
+				if (command.HasResponded)
+					await command.ModifyOriginalResponseAsync(properties => properties.Content = message);
+				else await command.RespondAsync(message);
+			}
 		}
 
 		public static bool RefreshModuleCommands(ulong guild, ModuleBase module, out string reason)
