@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 
 namespace Hoard2.Module.Builtin
@@ -15,10 +16,26 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Loading...");
 
-			if (!ModuleHelper.LoadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
-				await command.ModifyOriginalResponseAsync(properties => properties.Content = $"Failed to load module: {failReason}");
+			var _ = LoadModuleActual(
+				await command.GetOriginalResponseAsync(),
+				command.GuildId!.Value,
+				(string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value);
+		}
+
+		public static async Task LoadModuleActual(RestInteractionMessage originalMessage, ulong responseGuild, string moduleName)
+		{
+			if (!ModuleHelper.LoadModule(responseGuild, moduleName, out var failReason))
+				await originalMessage.ModifyAsync(properties => properties.Content = $"Failed to load module: {failReason}");
 			else
-				await command.ModifyOriginalResponseAsync(properties => properties.Content = "Loaded module.");
+				await originalMessage.ModifyAsync(properties => properties.Content = "Loaded module.");
+		}
+
+		public static async Task UnloadModuleActual(RestInteractionMessage originalMessage, ulong responseGuild, string moduleName)
+		{
+			if (!ModuleHelper.UnloadModule(responseGuild, moduleName, out var failReason))
+				await originalMessage.ModifyAsync(properties => properties.Content = $"Failed to unload module: {failReason}");
+			else
+				await originalMessage.ModifyAsync(properties => properties.Content = "Unloaded module.");
 		}
 
 		[ModuleCommand("unload-hoard-module", "Unload a module", GuildPermission.Administrator,
@@ -29,10 +46,10 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Unloading...");
 
-			if (!ModuleHelper.UnloadModule(command.GuildId!.Value, (string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value, out var failReason))
-				await command.ModifyOriginalResponseAsync(properties => properties.Content = $"Failed to load module: {failReason}");
-			else
-				await command.ModifyOriginalResponseAsync(properties => properties.Content = "Loaded module.");
+			var _ = UnloadModuleActual(
+				await command.GetOriginalResponseAsync(),
+				command.GuildId!.Value,
+				(string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value);
 		}
 	}
 }
