@@ -74,11 +74,13 @@ namespace Hoard2.Module
 			if (ModuleUsageCount[module] == 0)
 				HandleModuleDestroy(instance);
 			SaveLoadedModules();
+			HoardMain.Logger.LogInformation("Unload complete");
 			return true;
 		}
 
 		public static void HandleModuleDestroy(ModuleBase module)
 		{
+			HoardMain.Logger.LogInformation("Module({}) no longer loaded, destroying", module.GetType().Name);
 			var moduleName = module.GetType().Name.ToLower().Trim();
 			ModuleInstances.Remove(moduleName);
 			ModuleUsageCount.Remove(moduleName);
