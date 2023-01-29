@@ -17,7 +17,7 @@ namespace Hoard2.Module.Builtin
 		public static async Task DebugHaltingCommand(SocketSlashCommand command)
 		{
 			await command.RespondAsync("Halting...");
-			await Task.Delay(TimeSpan.FromMinutes(10));
+			await Task.Delay(TimeSpan.FromSeconds(10));
 			await command.ModifyOriginalResponseAsync(prop => prop.Content = "A halting warning should have been issued.");
 		}
 	}
