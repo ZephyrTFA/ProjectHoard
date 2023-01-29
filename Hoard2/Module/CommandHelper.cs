@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 
 using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 
 namespace Hoard2.Module
@@ -15,15 +16,19 @@ namespace Hoard2.Module
 		{
 			if (!CommandExecutor.TryGetValue(command.CommandName, out var executor))
 				return;
-			var executorTask = (Task)executor.Invoke(CommandOwner[command.CommandName], new object?[] { command })!;
 			try
 			{
+				var executorTask = (Task)executor.Invoke(CommandOwner[command.CommandName], new object?[] { command })!;
 				await executorTask.WaitAsync(TimeSpan.FromSeconds(5));
 			}
 			catch (TimeoutException)
 			{
 				const string message = "Command is causing a timeout. A slash command cannot take longer than five seconds to return control to the Gateway.";
 				await command.Channel.SendMessageAsync(message);
+			}
+			catch (Exception exc)
+			{
+				await command.Channel.SendMessageAsync($"Command experienced an Exception: `{exc}`");
 			}
 		}
 
@@ -108,11 +113,27 @@ namespace Hoard2.Module
 
 		public static void ClearModuleCommands(ulong guild, ModuleBase module)
 		{
-			foreach (var command in CommandOwner.Where(kvp => kvp.Value == module).Select(kvp => kvp.Key))
+			var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
+			var guildCommands = guildInstance.GetApplicationCommandsAsync().GetAwaiter().GetResult();
+			foreach (var command in guildCommands
+				.Where(gCommand => CommandOwner.ContainsKey(gCommand.Name))
+				.Where(gCommand => CommandOwner[gCommand.Name] == module))
 			{
-				HoardMain.Logger.LogInformation("Clearing module({}) command({})", module.GetType().Name, command);
-				if (!GuildCommands[command].TryGetValue(guild, out var commandInstance)) continue;
-				commandInstance.DeleteAsync().Wait();
+				HoardMain.Logger.LogInformation("Clearing module({}) command({})", module.GetType().Name, command.Name);
+				command.DeleteAsync().Wait();
+				GuildCommands[command.Name].Remove(guild);
+			}
+		}
+
+		public static async Task RunLongCommandTask(Task task, RestInteractionMessage responseMessage)
+		{
+			try
+			{
+				await task;
+			}
+			catch (Exception exception)
+			{
+				await responseMessage.Channel.SendMessageAsync($"Command experienced an Exception: `{exception}`");
 			}
 		}
 

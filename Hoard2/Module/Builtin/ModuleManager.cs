@@ -16,10 +16,12 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Loading...");
 
-			var _ = LoadModuleActual(
-				await command.GetOriginalResponseAsync(),
-				command.GuildId!.Value,
-				(string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value);
+			_ = CommandHelper.RunLongCommandTask(
+				LoadModuleActual(
+					await command.GetOriginalResponseAsync(),
+					command.GuildId!.Value,
+					(string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value),
+				await command.GetOriginalResponseAsync());
 		}
 
 		public static async Task LoadModuleActual(RestInteractionMessage originalMessage, ulong responseGuild, string moduleName)
@@ -46,10 +48,12 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Unloading...");
 
-			var _ = UnloadModuleActual(
-				await command.GetOriginalResponseAsync(),
-				command.GuildId!.Value,
-				(string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value);
+			_ = CommandHelper.RunLongCommandTask(
+				UnloadModuleActual(
+					await command.GetOriginalResponseAsync(),
+					command.GuildId!.Value,
+					(string)command.Data.Options.First(opt => opt.Name.Equals("module-id")).Value),
+				await command.GetOriginalResponseAsync());
 		}
 	}
 }
