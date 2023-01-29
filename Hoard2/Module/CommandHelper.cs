@@ -22,10 +22,8 @@ namespace Hoard2.Module
 			}
 			catch (TimeoutException)
 			{
-				const string message = "Command failed execution due to a timeout. A slash command cannot take longer than five seconds to return control to the Gateway.";
-				if (command.HasResponded)
-					await command.ModifyOriginalResponseAsync(properties => properties.Content = message);
-				else await command.RespondAsync(message);
+				const string message = "Command is causing a timeout. A slash command cannot take longer than five seconds to return control to the Gateway.";
+				await command.Channel.SendMessageAsync(message);
 			}
 		}
 
