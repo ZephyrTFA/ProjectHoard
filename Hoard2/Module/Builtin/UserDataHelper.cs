@@ -11,6 +11,6 @@ namespace Hoard2.Module.Builtin
 		public ModuleConfig GetGuildUserConfig(ulong user, ulong guild, string module) => CustomConfig($"{user}-{module}-{guild}");
 
 		[ModuleCommand("get-user-data", "Gets all of your user data")]
-		public static async Task GetUserData(SocketSlashCommand command) => await command.RespondAsync("Not implemented");
+		public async Task GetUserData(SocketSlashCommand command) => await command.RespondAsync("Not implemented");
 	}
 }

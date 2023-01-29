@@ -110,6 +110,7 @@ namespace Hoard2.Module
 		{
 			foreach (var command in CommandOwner.Where(kvp => kvp.Value == module).Select(kvp => kvp.Key))
 			{
+				HoardMain.Logger.LogInformation("Clearing module({}) command({})", module.GetType().Name, command);
 				if (!GuildCommands[command].TryGetValue(guild, out var commandInstance)) continue;
 				commandInstance.DeleteAsync().Wait();
 			}

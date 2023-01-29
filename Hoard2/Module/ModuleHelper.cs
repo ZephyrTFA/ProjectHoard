@@ -46,6 +46,7 @@ namespace Hoard2.Module
 
 		public static bool UnloadModule(ulong guild, string module, out string failReason)
 		{
+			HoardMain.Logger.LogInformation("Trying to unload module '{}' for guild '{}'", module, guild);
 			failReason = String.Empty;
 			module = module.ToLower().Trim();
 
@@ -85,6 +86,7 @@ namespace Hoard2.Module
 
 		public static bool LoadModule(ulong guild, string module, out string failReason)
 		{
+			HoardMain.Logger.LogInformation("Trying to load module '{}' for guild '{}'", module, guild);
 			failReason = String.Empty;
 			module = module.ToLower().Trim();
 
