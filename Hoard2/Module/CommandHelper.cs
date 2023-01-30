@@ -96,7 +96,12 @@ namespace Hoard2.Module
 			HoardMain.Logger.LogInformation("Refreshing module commands for {}", module);
 
 			var moduleCommands = module.GetType().GetMethods().Where(info => info.GetCustomAttribute<ModuleCommandAttribute>() is { })
-				.Select(info => new KeyValuePair<MethodInfo, ModuleCommandAttribute>(info, info.GetCustomAttribute<ModuleCommandAttribute>()!));
+				.Select(info => new KeyValuePair<MethodInfo, ModuleCommandAttribute>(info, info.GetCustomAttribute<ModuleCommandAttribute>()!)).ToList();
+			if (moduleCommands.Count == 0)
+			{
+				reason = "nothing to load";
+				return true;
+			}
 
 			var moduleMasterCommandName = module.GetType().Name.MTrim();
 			var moduleMasterCommand = new SlashCommandBuilder
