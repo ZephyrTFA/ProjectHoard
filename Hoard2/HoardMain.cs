@@ -19,7 +19,9 @@ namespace Hoard2
 			"ModuleManager",
 		}.AsReadOnly();
 
-		public static void StopWorker(int exitCode = 0)
+		public static void RestartWorker() => StopWorker(0);
+
+		public static void StopWorker(int exitCode = 1)
 		{
 			Environment.ExitCode = exitCode;
 			Shutdown().Wait();
@@ -142,30 +144,6 @@ namespace Hoard2
 			ModuleHelper.ModuleTypes.Clear();
 			ModuleHelper.LoadAssembly(Assembly.GetExecutingAssembly(), out _);
 			ModuleHelper.RestoreModules();
-		}
-
-		internal static async Task<bool> HandleSystemCommand(IMessage arg)
-		{
-			if (arg.Author.Id != 946283057915232337)
-				return false;
-
-			switch (arg.Content)
-			{
-				case "?hoard_restart":
-					await arg.Channel.SendMessageAsync("Restarting...");
-					Logger.LogInformation("Restarting...");
-					StopWorker();
-					return true;
-
-				case "?hoard_shutdown":
-					await arg.Channel.SendMessageAsync("Shutting down...");
-					Logger.LogInformation("Shutting down gracefully...");
-					StopWorker(69);
-					return true;
-
-				default:
-					return false;
-			}
 		}
 	}
 }

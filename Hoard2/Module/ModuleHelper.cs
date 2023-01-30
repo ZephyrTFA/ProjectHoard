@@ -212,8 +212,6 @@ namespace Hoard2.Module
 			message = await message.Channel.GetMessageAsync(message.Id);
 
 			if (message.Channel is not IGuildChannel guildChannel) return;
-
-			if (await HoardMain.HandleSystemCommand(message)) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnMessageReceived(message);

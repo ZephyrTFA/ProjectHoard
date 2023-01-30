@@ -8,7 +8,7 @@ namespace Hoard2.Module.Builtin
 	{
 		public ModuleManager(string configPath) : base(configPath) { }
 
-		[ModuleCommand("load-hoard-module", "Load a module", GuildPermission.Administrator)]
+		[ModuleCommand("load-module", "Load a module", GuildPermission.Administrator)]
 		public static async Task LoadModule(SocketSlashCommand command, string moduleId)
 		{
 			await command.RespondAsync("Loading...");
@@ -21,7 +21,7 @@ namespace Hoard2.Module.Builtin
 				await command.GetOriginalResponseAsync());
 		}
 
-		[ModuleCommand("unload-hoard-module", "Unload a module", GuildPermission.Administrator)]
+		[ModuleCommand("unload-module", "Unload a module", GuildPermission.Administrator)]
 		public static async Task UnloadModule(SocketSlashCommand command, string moduleId)
 		{
 			await command.RespondAsync("Unloading...");
