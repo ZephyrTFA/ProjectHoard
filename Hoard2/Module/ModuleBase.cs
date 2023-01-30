@@ -55,31 +55,18 @@ namespace Hoard2.Module
 	{
 		public ModuleCommandAttribute(string commandName,
 																	string commandDescription,
-																	GuildPermission commandPermissionRequirements,
-																	string[]? commandParamNames = null,
-																	Type[]? commandParamTypes = null,
-																	string[]? commandParamDescriptions = null)
+																	GuildPermission commandPermissionRequirements)
 		{
 			CommandName = commandName.ToLower();
 			CommandDescription = commandDescription;
 			CommandPermissionRequirements = commandPermissionRequirements;
-			if (commandParamNames is { }) CommandParamNames = commandParamNames;
-			if (commandParamTypes is { }) CommandParamTypes = commandParamTypes;
-			if (commandParamDescriptions is { }) CommandParamDescriptions = commandParamDescriptions;
 		}
 
 		public ModuleCommandAttribute(string commandName,
-																	string commandDescription,
-																	string[]? commandParamNames = null,
-																	Type[]? commandParamTypes = null,
-																	string[]? commandParamDescriptions = null)
+																	string commandDescription)
 		{
-			CommandName = commandName.ToLower();
+			CommandName = commandName;
 			CommandDescription = commandDescription;
-			CommandPermissionRequirements = null;
-			if (commandParamNames is { }) CommandParamNames = commandParamNames;
-			if (commandParamTypes is { }) CommandParamTypes = commandParamTypes;
-			if (commandParamDescriptions is { }) CommandParamDescriptions = commandParamDescriptions;
 		}
 
 		public string CommandName { get; init; }
@@ -87,11 +74,5 @@ namespace Hoard2.Module
 		public string CommandDescription { get; init; }
 
 		public GuildPermission? CommandPermissionRequirements { get; init; }
-
-		public string[] CommandParamNames { get; init; } = Array.Empty<string>();
-
-		public Type[] CommandParamTypes { get; init; } = Array.Empty<Type>();
-
-		public string[] CommandParamDescriptions { get; init; } = Array.Empty<string>();
 	}
 }

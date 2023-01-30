@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Text;
 
 using Discord;
 using Discord.Rest;
@@ -6,123 +7,178 @@ using Discord.WebSocket;
 
 namespace Hoard2.Module
 {
+	struct ModuleFunctionMap
+	{
+		public ModuleFunctionMap(ModuleBase owner)
+		{
+			Owner = owner;
+		}
+
+		internal readonly ModuleBase Owner;
+		internal readonly Dictionary<string, string[]> ParamMap = new Dictionary<string, string[]>();
+		internal readonly Dictionary<string, MethodInfo> ExecutorMap = new Dictionary<string, MethodInfo>();
+		internal readonly Dictionary<string, GuildPermission> PermissionMap = new Dictionary<string, GuildPermission>();
+	}
+
 	public static class CommandHelper
 	{
-		public static readonly Dictionary<string, Dictionary<ulong, SocketApplicationCommand>> GuildCommands = new Dictionary<string, Dictionary<ulong, SocketApplicationCommand>>();
-		public static readonly Dictionary<string, ModuleBase> CommandOwner = new Dictionary<string, ModuleBase>();
-		public static readonly Dictionary<string, MethodInfo> CommandExecutor = new Dictionary<string, MethodInfo>();
+		static readonly Dictionary<string, ModuleFunctionMap> ModuleFunctionMap = new Dictionary<string, ModuleFunctionMap>();
 
 		public static async Task ProcessApplicationCommand(SocketSlashCommand command)
 		{
-			if (!CommandExecutor.TryGetValue(command.CommandName, out var executor))
+			if (command.GuildId is null)
 				return;
+
+			var commandName = command.CommandName.ToLower().Trim();
+			if (!ModuleFunctionMap.ContainsKey(commandName))
+				return;
+			var map = ModuleFunctionMap[commandName];
+			var commandData = command.Data;
+
+			var subCommand = commandData.Options.FirstOrDefault();
+			if (subCommand is null)
+			{
+				await command.RespondAsync("No command given.");
+				return;
+			}
+			var subCommandName = subCommand.Name;
+
+			if (map.PermissionMap.TryGetValue(subCommandName, out var permission))
+			{
+				var user = (SocketGuildUser)command.User;
+				if (!user.GuildPermissions.Has(permission))
+				{
+					await command.RespondAsync("You lack permission for this command!", ephemeral: true);
+					return;
+				}
+			}
+
+			var options = subCommand.Options;
+			var methodParams = new object?[map.ParamMap[subCommandName].Length + 1];
+			var idx = 1;
+			foreach (var param in map.ParamMap[subCommandName])
+				methodParams[idx++] = options.First(opt => opt.Name.Equals(param)).Value;
+			methodParams[0] = command;
+
+			var executor = map.ExecutorMap[subCommandName];
+			var executorTask = (Task)executor.Invoke(map.Owner, methodParams)!;
+
 			try
 			{
-				var executorTask = (Task)executor.Invoke(CommandOwner[command.CommandName], new object?[] { command })!;
 				await executorTask.WaitAsync(TimeSpan.FromSeconds(5));
 			}
 			catch (TimeoutException)
 			{
-				const string message = "Command is causing a timeout. A slash command cannot take longer than five seconds to return control to the Gateway.";
-				await command.Channel.SendMessageAsync(message);
+				await command.Channel.SendMessageAsync("Command is causing a timeout. A slash command cannot take longer than five seconds to return control to the Gateway.");
 			}
-			catch (Exception exc)
+			catch (Exception e)
 			{
-				await command.Channel.SendMessageAsync($"Command experienced an Exception: `{exc}`");
+				await command.Channel.SendMessageAsync($"Command experienced an Exception:\n```\n{e}\n```\n");
 			}
+		}
+
+		static string MTrim(this string str)
+		{
+			if (String.IsNullOrEmpty(str)) return str;
+			var output = new StringBuilder();
+			var first = str[0];
+			output.Append(Char.ToLower(first));
+			foreach (var character in str.Skip(1))
+				if (Char.IsUpper(character))
+					output.Append($"-{Char.ToLower(character)}");
+				else
+					output.Append(character);
+			return output.ToString();
 		}
 
 		public static bool RefreshModuleCommands(ulong guild, ModuleBase module, out string reason)
 		{
 			HoardMain.Logger.LogInformation("Refreshing module commands for {}", module);
+
 			var moduleCommands = module.GetType().GetMethods().Where(info => info.GetCustomAttribute<ModuleCommandAttribute>() is { })
 				.Select(info => new KeyValuePair<MethodInfo, ModuleCommandAttribute>(info, info.GetCustomAttribute<ModuleCommandAttribute>()!));
 
-			foreach (var (command, data) in moduleCommands)
+			var moduleMasterCommandName = module.GetType().Name.MTrim();
+			var moduleMasterCommand = new SlashCommandBuilder
 			{
-				if (command.ReturnType != typeof(Task))
+				Name = moduleMasterCommandName,
+				Description = $"Commands for {moduleMasterCommandName}",
+			};
+
+			var moduleFunctionMap = new ModuleFunctionMap(module);
+			foreach (var (methodInfo, commandAttribute) in moduleCommands)
+			{
+				if (methodInfo.ReturnType != typeof(Task))
 				{
-					reason = "command function does not return Task";
-					return false;
-				}
-				var parameters = command.GetParameters();
-				if (parameters.Length != 1 || parameters[0].ParameterType != typeof(SocketSlashCommand))
-				{
-					reason = "command function expects one paramter of SocketSlashCommand";
+					reason = "application command method must return Task";
 					return false;
 				}
 
-				var commandName = data.CommandName.ToLower().Trim();
-				var slashCommandBuilder = new SlashCommandBuilder
+				var methodParams = methodInfo.GetParameters();
+				if (methodParams[0].ParameterType != typeof(SocketSlashCommand))
 				{
-					Name = commandName,
-					DefaultMemberPermissions = data.CommandPermissionRequirements,
-					Description = data.CommandDescription,
+					reason = "first parameter of an application command must be SocketSlashCommand";
+					return false;
+				}
+				methodParams = methodParams.Skip(1).ToArray();
+
+				var moduleSubCommand = new SlashCommandOptionBuilder
+				{
+					Name = commandAttribute.CommandName.MTrim(),
+					Description = commandAttribute.CommandDescription.MTrim(),
+					Type = ApplicationCommandOptionType.SubCommand,
 				};
+				if (commandAttribute.CommandPermissionRequirements.HasValue)
+					moduleFunctionMap.PermissionMap[moduleSubCommand.Name] = commandAttribute.CommandPermissionRequirements.Value;
 
-				var paramCount = data.CommandParamNames.Length;
-				if (data.CommandParamTypes.Length != paramCount || data.CommandParamDescriptions.Length != paramCount)
+				moduleFunctionMap.ParamMap[moduleSubCommand.Name] = new string[methodParams.Length];
+				var paramIdx = 0;
+				foreach (var param in methodParams)
 				{
-					reason = "Invalid parameter information: mismatched array sizes";
-					return false;
-				}
-
-				for (var param = 0; param < paramCount; param++)
-				{
-					var optTypeInfo = data.CommandParamTypes[param].AsOptionType();
-					if (!optTypeInfo.HasValue)
+					var parsedType = param.ParameterType.AsOptionType();
+					if (!parsedType.HasValue)
 					{
-						reason = $"Not a known option type: {data.CommandParamTypes[param]}";
+						reason = $"unable to parse param type {param.ParameterType}";
 						return false;
 					}
-					var (required, optionType) = optTypeInfo.Value;
 
-					var option = new SlashCommandOptionBuilder
+					var (required, type) = parsedType.Value;
+					var moduleCommandParam = new SlashCommandOptionBuilder
 					{
-						Name = data.CommandParamNames[param],
-						Type = optionType,
-						Description = data.CommandParamDescriptions[param],
+						Name = param.Name!.MTrim(),
+						Description = param.Name!.MTrim(),
 						IsRequired = required,
+						Type = type,
 					};
-
-					slashCommandBuilder.AddOption(option);
+					moduleFunctionMap.ParamMap[moduleSubCommand.Name][paramIdx++] = moduleCommandParam.Name;
+					moduleSubCommand.AddOption(moduleCommandParam);
 				}
 
-				var commandProps = slashCommandBuilder.Build();
-				if (!GuildCommands.ContainsKey(commandName)) GuildCommands[commandName] = new Dictionary<ulong, SocketApplicationCommand>();
-				if (GuildCommands[commandName].TryGetValue(guild, out var existingCommand))
-				{
-					existingCommand.DeleteAsync().Wait();
-					HoardMain.Logger.LogInformation("Removing guild old command");
-				}
-				HoardMain.Logger.LogInformation("Creating command {}", commandName);
-
-				var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
-				var commandInstance = guildInstance.CreateApplicationCommandAsync(commandProps,
-					new RequestOptions { RetryMode = RetryMode.RetryRatelimit }).GetAwaiter().GetResult();
-				GuildCommands[commandName].Add(guild, commandInstance);
-
-				// These will get reset everytime a guild is loaded, oh well!
-				CommandExecutor[commandName] = command;
-				CommandOwner[commandName] = module;
+				moduleMasterCommand.AddOption(moduleSubCommand);
+				moduleFunctionMap.ExecutorMap[moduleSubCommand.Name] = methodInfo;
 			}
 
+			try
+			{
+				var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
+				guildInstance.CreateApplicationCommandAsync(moduleMasterCommand.Build()).Wait();
+			}
+			catch (Exception e)
+			{
+				reason = $"exception during creation: {e}";
+				return false;
+			}
+
+			ModuleFunctionMap[moduleMasterCommandName] = moduleFunctionMap;
 			reason = String.Empty;
 			return true;
 		}
 
-		public static void ClearModuleCommands(ulong guild, ModuleBase module)
+		public static void ClearModuleCommand(ulong guild, ModuleBase module)
 		{
 			var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
 			var guildCommands = guildInstance.GetApplicationCommandsAsync().GetAwaiter().GetResult();
-			foreach (var command in guildCommands
-				.Where(gCommand => CommandOwner.ContainsKey(gCommand.Name))
-				.Where(gCommand => CommandOwner[gCommand.Name] == module))
-			{
-				HoardMain.Logger.LogInformation("Clearing module({}) command({})", module.GetType().Name, command.Name);
-				command.DeleteAsync().Wait();
-				GuildCommands[command.Name].Remove(guild);
-			}
+			guildCommands.FirstOrDefault(command => command.Name.MTrim().Equals(module.GetType().Name.MTrim()))?.DeleteAsync().Wait();
 		}
 
 		public static async Task RunLongCommandTask(Task task, RestInteractionMessage responseMessage)
@@ -133,7 +189,7 @@ namespace Hoard2.Module
 			}
 			catch (Exception exception)
 			{
-				await responseMessage.Channel.SendMessageAsync($"Command experienced an Exception: `{exception}`");
+				await responseMessage.Channel.SendMessageAsync($"Command experienced an Exception: \n```\n{exception}\n```\n");
 			}
 		}
 

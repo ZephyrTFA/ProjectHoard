@@ -133,8 +133,11 @@ namespace Hoard2
 
 		public static async Task RestoreModules()
 		{
-			foreach (var command in await DiscordClient.GetGlobalApplicationCommandsAsync())
-				await command.DeleteAsync(new RequestOptions { RetryMode = RetryMode.AlwaysFail });
+			var allCommands = (await DiscordClient.GetGlobalApplicationCommandsAsync()).ToList();
+			foreach (var guild in DiscordClient.Guilds)
+				allCommands.AddRange(await guild.GetApplicationCommandsAsync());
+			foreach (var command in allCommands)
+				await command.DeleteAsync(new RequestOptions { RetryMode = RetryMode.RetryRatelimit });
 
 			ModuleHelper.ModuleTypes.Clear();
 			ModuleHelper.LoadAssembly(Assembly.GetExecutingAssembly(), out _);

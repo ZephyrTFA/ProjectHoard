@@ -7,14 +7,9 @@ namespace Hoard2.Module.Builtin
 	{
 		public MemberLog(string configPath) : base(configPath) { }
 
-		[ModuleCommand("set-member-log-channel", "Update the target channel for member logging", GuildPermission.Administrator,
-			new[] { "channel" },
-			new[] { typeof(IChannel) },
-			new[] { "id for the channel to use for logging" })]
-		public async Task SetMemberLogChannel(SocketSlashCommand command)
+		[ModuleCommand("set-member-log-channel", "Update the target channel for member logging", GuildPermission.Administrator)]
+		public async Task SetMemberLogChannel(SocketSlashCommand command, IChannel channel)
 		{
-			if (command.Data.Options.FirstOrDefault()?.Value is not IChannel channel)
-				throw new InvalidDataException();
 			GuildConfig(command.GuildId!.Value).Set("log-channel", channel.Id);
 			await command.RespondAsync(text: $"Updated the target log channel to <#{channel.Id}>");
 		}

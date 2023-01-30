@@ -67,7 +67,7 @@ namespace Hoard2.Module
 
 			var instance = ModuleInstances[module];
 			if (!instance.TryUnload(guild, out failReason)) return false;
-			CommandHelper.ClearModuleCommands(guild, instance);
+			CommandHelper.ClearModuleCommand(guild, instance);
 			guildModules.Remove(module);
 			ModuleUsageCount[module] -= 1;
 
@@ -219,12 +219,12 @@ namespace Hoard2.Module
 				await module.DiscordClientOnMessageReceived(message);
 		}
 
-		internal static Task JoinedGuild(SocketGuild guild)
+		internal static async Task JoinedGuild(SocketGuild guild)
 		{
+			await guild.DeleteApplicationCommandsAsync();
 			foreach (var systemModule in SystemModules)
 				if (!LoadModule(guild.Id, systemModule, out var reason))
 					HoardMain.Logger.LogCritical("Failed to load system module {}: {}", systemModule, reason);
-			return Task.CompletedTask;
 		}
 
 		internal static Task LeftGuild(SocketGuild guild)
