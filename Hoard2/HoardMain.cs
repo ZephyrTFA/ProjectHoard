@@ -13,6 +13,7 @@ namespace Hoard2
 		public static ILogger<Worker> Logger = null!;
 		public static DiscordSocketClient DiscordClient = null!;
 		public static DirectoryInfo DataDirectory = null!;
+		public static CancellationToken HoardToken;
 
 		public static readonly IReadOnlyList<string> SystemModules = new List<string>
 		{
@@ -30,6 +31,7 @@ namespace Hoard2
 
 		public static void Initialize(ILogger<Worker> log, CancellationToken workerToken)
 		{
+			HoardToken = workerToken;
 			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
 			{
 				GatewayIntents = GatewayIntents.All,

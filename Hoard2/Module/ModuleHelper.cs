@@ -177,6 +177,7 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnUserLeft(SocketGuild arg1, SocketUser arg2)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (!GuildModules.TryGetValue(arg1.Id, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnUserLeft(arg1, arg2);
@@ -184,6 +185,7 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (!GuildModules.TryGetValue(socketGuildUser.Guild.Id, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnUserJoined(socketGuildUser);
@@ -191,6 +193,7 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> cacheableMessage, SocketMessage socketMessage, ISocketMessageChannel socketMessageChannel)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (socketMessageChannel is not IGuildChannel guildChannel) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
@@ -199,6 +202,7 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnMessageDeleted(Cacheable<IMessage, ulong> cacheable, Cacheable<IMessageChannel, ulong> cacheableChannel)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (!cacheable.HasValue || cacheableChannel.HasValue || cacheableChannel.Value is not IGuildChannel guildChannel) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
@@ -207,6 +211,7 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnMessageReceived(IMessage message)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			// why is this needed?
 			await Task.Yield();
 			message = await message.Channel.GetMessageAsync(message.Id);
@@ -219,6 +224,7 @@ namespace Hoard2.Module
 
 		internal static async Task JoinedGuild(SocketGuild guild)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			await guild.DeleteApplicationCommandsAsync();
 			foreach (var systemModule in SystemModules)
 				if (!LoadModule(guild.Id, systemModule, out var reason))
@@ -227,6 +233,7 @@ namespace Hoard2.Module
 
 		internal static Task LeftGuild(SocketGuild guild)
 		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return Task.CompletedTask;
 			if (!GuildModules.TryGetValue(guild.Id, out _)) return Task.CompletedTask;
 			GuildModules.Remove(guild.Id);
 			SaveLoadedModules();
