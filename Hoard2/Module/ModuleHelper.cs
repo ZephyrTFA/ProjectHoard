@@ -210,7 +210,6 @@ namespace Hoard2.Module
 		{
 			HoardMain.Logger.LogInformation("MessageUpdated: {}", cacheableMessage.Id);
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			;
 			if (socketMessageChannel is not IGuildChannel guildChannel) return;
 			HoardMain.Logger.LogInformation("guildChannel");
 			if (!cacheableMessage.HasValue) return;
