@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
 
 using Hoard2.Module;
@@ -14,11 +12,6 @@ namespace Hoard2
 		public static DiscordSocketClient DiscordClient = null!;
 		public static DirectoryInfo DataDirectory = null!;
 		public static CancellationToken HoardToken;
-
-		public static readonly IReadOnlyList<string> SystemModules = new List<string>
-		{
-			"ModuleManager",
-		}.AsReadOnly();
 
 		public static void RestartWorker() => StopWorker(0);
 
@@ -143,8 +136,6 @@ namespace Hoard2
 			foreach (var command in allCommands)
 				await command.DeleteAsync(new RequestOptions { RetryMode = RetryMode.RetryRatelimit });
 
-			ModuleHelper.ModuleTypes.Clear();
-			ModuleHelper.LoadAssembly(Assembly.GetExecutingAssembly(), out _);
 			ModuleHelper.RestoreModules();
 		}
 	}

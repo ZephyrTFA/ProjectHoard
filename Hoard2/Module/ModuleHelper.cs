@@ -21,7 +21,15 @@ namespace Hoard2.Module
 
 		static bool _restoring;
 
-		public static T? GetModuleInstance<T>() where T : ModuleBase => (T?)ModuleInstances.Select(kvp => kvp.Value).FirstOrDefault(module => module.GetType() == typeof(T));
+		public static T? GetModuleInstance<T>(ulong guild) where T : ModuleBase
+		{
+			// Verify that guild has the module loaded!
+			var moduleId = typeof(T).Name.MTrim();
+			if (!GuildModules.TryGetValue(guild, out var loadedModules)) return null;
+			if (!loadedModules.Contains(moduleId)) return null;
+			// okay, its loaded, now return the global instance
+			return (T?)ModuleInstances.Select(kvp => kvp.Value).FirstOrDefault(module => module.GetType() == typeof(T));
+		}
 
 		public static void LoadAssembly(Assembly assembly, out List<string> errors)
 		{
@@ -150,9 +158,16 @@ namespace Hoard2.Module
 			new DataContractSerializer(typeof(Dictionary<ulong, List<string>>)).WriteObject(writer, GuildModules);
 			writer.Dispose();
 		}
+
 		public static void RestoreModules()
 		{
+			if (_restoring) return; // already restoring
+
 			_restoring = true;
+
+			ModuleTypes.Clear();
+			LoadAssembly(Assembly.GetExecutingAssembly(), out _);
+
 			HoardMain.Logger.LogInformation("Restoring Modules");
 			foreach (var guild in HoardMain.DiscordClient.Guilds)
 				foreach (var systemModule in SystemModules)
@@ -195,9 +210,10 @@ namespace Hoard2.Module
 		{
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (socketMessageChannel is not IGuildChannel guildChannel) return;
+			if (!cacheableMessage.HasValue) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnMessageUpdated(cacheableMessage, socketMessage, socketMessageChannel);
+				await module.DiscordClientOnMessageUpdated(cacheableMessage.Value, socketMessage, guildChannel);
 		}
 
 		internal static async Task DiscordClientOnMessageDeleted(Cacheable<IMessage, ulong> cacheable, Cacheable<IMessageChannel, ulong> cacheableChannel)

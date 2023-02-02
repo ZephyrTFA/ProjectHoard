@@ -77,7 +77,7 @@ namespace Hoard2.Module
 			}
 		}
 
-		static string MTrim(this string str)
+		internal static string MTrim(this string str)
 		{
 			if (String.IsNullOrEmpty(str)) return str;
 			var output = new StringBuilder();

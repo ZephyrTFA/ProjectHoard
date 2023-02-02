@@ -1,4 +1,5 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Serialization;
 
 namespace Hoard2.Module
 {
@@ -18,6 +19,12 @@ namespace Hoard2.Module
 		FileInfo StoreInfo { get; }
 
 		public T? Get<T>(string key, T? defaultValue = default) => Has(key) ? (T?)_configData[key] : defaultValue;
+
+		public bool TryGet<T>(string key, [NotNullWhen(true)] out T? value)
+		{
+			value = Get<T>(key);
+			return value is not null;
+		}
 
 		public bool Has(string key) => _configData.ContainsKey(key);
 
