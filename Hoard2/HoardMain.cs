@@ -28,6 +28,7 @@ namespace Hoard2
 			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
 			{
 				GatewayIntents = GatewayIntents.All,
+				MessageCacheSize = 200,
 			});
 			Logger = log;
 			DiscordClient.Log += HandleDiscordLog;
