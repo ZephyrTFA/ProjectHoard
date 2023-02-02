@@ -208,10 +208,15 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> cacheableMessage, SocketMessage socketMessage, ISocketMessageChannel socketMessageChannel)
 		{
+			HoardMain.Logger.LogInformation("MessageUpdated: {}", cacheableMessage.Id);
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
+			;
 			if (socketMessageChannel is not IGuildChannel guildChannel) return;
+			HoardMain.Logger.LogInformation("guildChannel");
 			if (!cacheableMessage.HasValue) return;
+			HoardMain.Logger.LogInformation("HasValue");
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
+			HoardMain.Logger.LogInformation("Loaded");
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnMessageUpdated(cacheableMessage.Value, socketMessage, guildChannel);
 		}
