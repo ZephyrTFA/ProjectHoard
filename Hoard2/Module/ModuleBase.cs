@@ -50,7 +50,7 @@ namespace Hoard2.Module
 			return true;
 		}
 
-		protected Task CreateTimer(ulong guild, ModuleBase owner, TimeSpan interval, Func<Task> callback, uint times = 0)
+		protected Task CreateTimer(ulong guild, TimeSpan interval, Func<Task> callback, uint times = 0)
 		{
 			async Task Action()
 			{
