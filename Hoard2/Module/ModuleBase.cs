@@ -50,7 +50,7 @@ namespace Hoard2.Module
 			return true;
 		}
 
-		protected Task CreateTimer(ulong guild, TimeSpan interval, Func<Task> callback, uint times = 0)
+		protected Task CreateTimer(ulong guild, ModuleBase owner, TimeSpan interval, Func<Task> callback, uint times = 0)
 		{
 			async Task Action()
 			{
@@ -63,7 +63,7 @@ namespace Hoard2.Module
 						return;
 					var myType = GetType();
 					var getLoaded = typeof(ModuleHelper).GetMethod(nameof(ModuleHelper.GetModuleInstance))?.MakeGenericMethod(myType)!;
-					if (getLoaded.Invoke(null, new object?[]{ guild }) != this)
+					if (getLoaded.Invoke(null, new object?[]{ guild }) != owner)
 						return;
 					await callback.Invoke();
 					count++;

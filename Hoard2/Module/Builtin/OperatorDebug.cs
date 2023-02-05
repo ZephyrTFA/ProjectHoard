@@ -32,7 +32,8 @@ namespace Hoard2.Module.Builtin
 		public async Task DebugTimer(SocketSlashCommand command)
 		{
 			await command.RespondAsync("Starting...");
-			var timer = CreateTimer(command.GuildId!.Value, TimeSpan.FromSeconds(1), () => command.ModifyOriginalResponseAsync(prop => prop.Content = $"Current time: {DateTime.Now}"), 10);
+			var timer = CreateTimer(command.GuildId!.Value, this, TimeSpan.FromSeconds(1), () => command.ModifyOriginalResponseAsync(prop => prop.Content = $"Current time: {DateTime.Now}"), 10);
+			timer.Start();
 		}
 	}
 }
