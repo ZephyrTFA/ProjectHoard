@@ -208,14 +208,11 @@ namespace Hoard2.Module
 
 		internal static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> cacheableMessage, SocketMessage socketMessage, ISocketMessageChannel socketMessageChannel)
 		{
-			HoardMain.Logger.LogInformation("MessageUpdated: {}", cacheableMessage.Id);
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (socketMessageChannel is not IGuildChannel guildChannel) return;
-			HoardMain.Logger.LogInformation("guildChannel");
 			if (!cacheableMessage.HasValue) return;
-			HoardMain.Logger.LogInformation("HasValue");
+			if (cacheableMessage.Value.Author.Id == HoardMain.DiscordClient.CurrentUser.Id) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
-			HoardMain.Logger.LogInformation("Loaded");
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnMessageUpdated(cacheableMessage.Value, socketMessage, guildChannel);
 		}
@@ -224,6 +221,7 @@ namespace Hoard2.Module
 		{
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			if (!cacheable.HasValue || cacheableChannel.HasValue || cacheableChannel.Value is not IGuildChannel guildChannel) return;
+			if (cacheable.Value.Author.Id == HoardMain.DiscordClient.CurrentUser.Id) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnMessageDeleted(cacheable.Value, guildChannel);
@@ -237,6 +235,7 @@ namespace Hoard2.Module
 			message = await message.Channel.GetMessageAsync(message.Id);
 
 			if (message.Channel is not IGuildChannel guildChannel) return;
+			if (message.Author.Id == HoardMain.DiscordClient.CurrentUser.Id) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
 				await module.DiscordClientOnMessageReceived(message);
