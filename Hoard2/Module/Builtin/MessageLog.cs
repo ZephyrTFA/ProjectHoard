@@ -19,6 +19,7 @@ namespace Hoard2.Module.Builtin
 				.WithTimestamp(DateTimeOffset.UtcNow)
 				.WithColor(Color.Red)
 				.AddField("Contents", message.CleanContent)
+				.AddField("Author", $"{message.Author.Mention} ({message.Author.Id})")
 				.AddField("Jump Information", $"<#{channel.Id}>");
 			await logChannel.SendMessageAsync(embed: updateEmbed.Build());
 		}
@@ -33,6 +34,7 @@ namespace Hoard2.Module.Builtin
 				.WithTimestamp(newMessage.EditedTimestamp!.Value)
 				.WithColor(Color.Teal)
 				.AddField("Previous Contents", oldMessage.CleanContent)
+				.AddField("Author", $"{newMessage.Author.Mention} ({newMessage.Author.Id})")
 				.AddField("Jump Information", $"<#{socketMessageChannel.Id}> | [View]({newMessage.GetJumpUrl()})");
 			await logChannel.SendMessageAsync(embed: updateEmbed.Build());
 		}
