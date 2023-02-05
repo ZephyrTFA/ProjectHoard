@@ -119,6 +119,7 @@ namespace Hoard2
 		{
 			DiscordClient.MessageReceived += ModuleHelper.DiscordClientOnMessageReceived;
 			DiscordClient.MessageDeleted += ModuleHelper.DiscordClientOnMessageDeleted;
+			DiscordClient.MessagesBulkDeleted += ModuleHelper.DiscordClientOnMessagesBulkDeleted;
 			DiscordClient.MessageUpdated += ModuleHelper.DiscordClientOnMessageUpdated;
 			DiscordClient.UserJoined += ModuleHelper.DiscordClientOnUserJoined;
 			DiscordClient.UserLeft += ModuleHelper.DiscordClientOnUserLeft;
