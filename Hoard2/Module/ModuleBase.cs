@@ -64,7 +64,7 @@ namespace Hoard2.Module
 					var myType = GetType();
 					var getLoaded = typeof(ModuleHelper).GetMethod(nameof(ModuleHelper.GetModuleInstance))?.MakeGenericMethod(myType)!;
 					if (getLoaded.Invoke(null, new object?[]{ guild }) is {})
-						return;
+						throw new Exception("Module unloaded while timer was running");
 					await callback.Invoke();
 					count++;
 				}

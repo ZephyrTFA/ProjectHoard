@@ -33,7 +33,7 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.RespondAsync("Starting...");
 			var _ = CreateTimer(command.GuildId!.Value, TimeSpan.FromSeconds(1),
-			() => command.ModifyOriginalResponseAsync(prop => prop.Content = $"Current time: {DateTime.Now}"), 10).ContinueWith(t => command.ModifyOriginalResponseAsync(prop => prop.Content = $"Timer stopped: {t.Exception?.Message ?? "no exception"}"), TaskContinuationOptions.OnlyOnFaulted);
+			() => command.ModifyOriginalResponseAsync(prop => prop.Content = $"Current time: {DateTime.Now}"), 10).ContinueWith(t => command.ModifyOriginalResponseAsync(prop => prop.Content = $"Timer stopped: {t.Exception?.Message ?? "no exception"}"));
 		}
 	}
 }
