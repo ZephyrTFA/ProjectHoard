@@ -49,6 +49,28 @@ namespace Hoard2.Module
 			reason = String.Empty;
 			return true;
 		}
+
+		protected Task CreateTimer(ulong guild, TimeSpan interval, Func<Task> callback, uint times = 0)
+		{
+			async Task Action()
+			{
+				var count = 0;
+				while (!HoardMain.HoardToken.IsCancellationRequested && (times == 0 || count < times))
+				{
+					await Task.Delay(interval);
+
+					if (HoardMain.HoardToken.IsCancellationRequested)
+						return;
+					var myType = GetType();
+					var getLoaded = typeof(ModuleHelper).GetMethod(nameof(ModuleHelper.GetModuleInstance))?.MakeGenericMethod(myType)!;
+					if (getLoaded.Invoke(null, new object?[]{ guild }) != this)
+						return;
+					await callback.Invoke();
+					count++;
+				}
+			}
+			return Task.Run(Action);
+		}
 	}
 
 	[AttributeUsage(AttributeTargets.Method)]
