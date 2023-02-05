@@ -63,7 +63,7 @@ namespace Hoard2.Module
 						return;
 					var myType = GetType();
 					var getLoaded = typeof(ModuleHelper).GetMethod(nameof(ModuleHelper.GetModuleInstance))?.MakeGenericMethod(myType)!;
-					if (getLoaded.Invoke(null, new object?[]{ guild }) != owner)
+					if (getLoaded.Invoke(null, new object?[]{ guild }) is {})
 						return;
 					await callback.Invoke();
 					count++;
