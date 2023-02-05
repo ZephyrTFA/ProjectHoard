@@ -29,6 +29,8 @@ namespace Hoard2
 			{
 				GatewayIntents = GatewayIntents.All,
 				MessageCacheSize = 200,
+				AlwaysDownloadUsers = true,
+				LogLevel = LogSeverity.Verbose,
 			});
 			Logger = log;
 			DiscordClient.Log += HandleDiscordLog;
