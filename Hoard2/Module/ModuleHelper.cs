@@ -220,7 +220,7 @@ namespace Hoard2.Module
 		internal static async Task DiscordClientOnMessageDeleted(Cacheable<IMessage, ulong> cacheable, Cacheable<IMessageChannel, ulong> cacheableChannel)
 		{
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (!cacheable.HasValue || cacheableChannel.HasValue || cacheableChannel.Value is not IGuildChannel guildChannel) return;
+			if (!cacheable.HasValue || !cacheableChannel.HasValue || cacheableChannel.Value is not IGuildChannel guildChannel) return;
 			if (cacheable.Value.Author.Id == HoardMain.DiscordClient.CurrentUser.Id) return;
 			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
 			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
