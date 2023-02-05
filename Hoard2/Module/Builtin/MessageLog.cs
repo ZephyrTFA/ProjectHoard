@@ -33,7 +33,7 @@ namespace Hoard2.Module.Builtin
 				.WithTimestamp(newMessage.EditedTimestamp!.Value)
 				.WithColor(Color.Teal)
 				.AddField("Previous Contents", oldMessage.CleanContent)
-				.AddField("Jump Information", $"<#{socketMessageChannel.Id}> | [View]({newMessage.GetJumpUrl()})")
+				.AddField("Jump Information", $"<#{socketMessageChannel.Id}> | [View]({newMessage.GetJumpUrl()})");
 			await logChannel.SendMessageAsync(embed: updateEmbed.Build());
 		}
 
