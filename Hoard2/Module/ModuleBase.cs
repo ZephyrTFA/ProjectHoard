@@ -30,6 +30,8 @@ namespace Hoard2.Module
 
 		public virtual Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser) => Task.CompletedTask;
 
+		public virtual Task DiscordClientOnUserUpdated(SocketGuildUser current, SocketGuildUser old) => Task.CompletedTask;
+
 		public virtual Task DiscordClientOnMessageUpdated(IMessage originalMessage, SocketMessage newMessage, IGuildChannel socketMessageChannel) => Task.CompletedTask;
 
 		public virtual Task DiscordClientOnMessageDeleted(IMessage message, IGuildChannel channel) => Task.CompletedTask;

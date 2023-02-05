@@ -72,5 +72,35 @@ namespace Hoard2.Module.Builtin
 				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{socketUser.Id}"))
 				.Build());
 		}
+
+		public override async Task DiscordClientOnUserUpdated(SocketGuildUser whom, SocketGuildUser by)
+		{
+			if (GuildConfig(whom.Guild.Id).Get<ulong?>("log-channel") is not { } channelId)
+				return;
+			
+			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);
+			if (channel is not IMessageChannel messageChannel)
+			{
+				HoardMain.Logger.LogWarning("Could not fetch channel!");
+				return;
+			}
+
+			var embed = new EmbedBuilder()
+				.WithAuthor(whom)
+				.WithTimestamp(DateTimeOffset.UtcNow)
+				.WithColor(Color.DarkBlue)
+				.WithTitle($"{whom.Username} has been updated.")
+				.WithDescription($"<@!{whom.Id}>");
+			
+			var newRoles = whom.Roles.Where(x => !by.Roles.Contains(x)).ToList();
+			var oldRoles = by.Roles.Where(x => !whom.Roles.Contains(x)).ToList();
+
+			if (newRoles.Count > 0)
+				embed.AddField("New Roles", string.Join(", ", newRoles.Select(x => x.Mention)));
+			if (oldRoles.Count > 0)
+				embed.AddField("Removed Roles", string.Join(", ", oldRoles.Select(x => x.Mention)));
+			
+			await messageChannel.SendMessageAsync(embed: embed.Build());
+		}
 	}
 }

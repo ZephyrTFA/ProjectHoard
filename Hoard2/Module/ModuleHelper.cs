@@ -206,6 +206,14 @@ namespace Hoard2.Module
 				await module.DiscordClientOnUserJoined(socketGuildUser);
 		}
 
+		internal static async Task DiscordClientOnUserUpdated(SocketUser arg1, SocketUser arg2)
+		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
+			if (!GuildModules.TryGetValue(arg1.Id, out var modules)) return;
+			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
+				await module.DiscordClientOnUserUpdated((SocketGuildUser)arg1, (SocketGuildUser)arg2);
+		}
+
 		internal static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> cacheableMessage, SocketMessage socketMessage, ISocketMessageChannel socketMessageChannel)
 		{
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
