@@ -72,45 +72,5 @@ namespace Hoard2.Module.Builtin
 				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{socketUser.Id}"))
 				.Build());
 		}
-
-		public override async Task DiscordClientOnUserUpdated(SocketGuildUser current, SocketGuildUser old)
-		{
-			if (GuildConfig(current.Guild.Id).Get<ulong?>("log-channel") is not { } channelId)
-				return;
-			
-			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);
-			if (channel is not IMessageChannel messageChannel)
-			{
-				HoardMain.Logger.LogWarning("Could not fetch channel!");
-				return;
-			}
-
-			var embed = new EmbedBuilder()
-				.WithAuthor(current)
-				.WithTimestamp(DateTimeOffset.UtcNow)
-				.WithColor(Color.DarkBlue)
-				.WithTitle($"{current.Username} has been updated.")
-				.WithDescription($"<@!{current.Id}>");
-
-			var newRoles = current.Roles.Where(x => !old.Roles.Contains(x)).ToList();
-			if (newRoles.Count > 0)
-				embed.AddField("New Roles", string.Join(", ", newRoles.Select(x => x.Mention)));
-
-			var oldRoles = old.Roles.Where(x => !current.Roles.Contains(x)).ToList();
-			if (oldRoles.Count > 0)
-				embed.AddField("Removed Roles", string.Join(", ", oldRoles.Select(x => x.Mention)));
-
-			var oldName = old.Username;
-			var newName = current.Username;
-			if (oldName != newName)
-				embed.AddField("Username", $"{oldName} -> {newName}");
-
-			var oldNickname = old.Nickname;
-			var newNickname = current.Nickname;
-			if (oldNickname != newNickname)
-				embed.AddField("Nickname", $"{oldNickname} -> {newNickname}");
-
-			await messageChannel.SendMessageAsync(embed: embed.Build());
-		}
 	}
 }
