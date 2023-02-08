@@ -29,6 +29,8 @@ namespace Hoard2
 			{
 				GatewayIntents = GatewayIntents.All,
 				MessageCacheSize = 200,
+				AlwaysDownloadUsers = true,
+				LogLevel = LogSeverity.Verbose,
 			});
 			Logger = log;
 			DiscordClient.Log += HandleDiscordLog;
@@ -119,9 +121,11 @@ namespace Hoard2
 		{
 			DiscordClient.MessageReceived += ModuleHelper.DiscordClientOnMessageReceived;
 			DiscordClient.MessageDeleted += ModuleHelper.DiscordClientOnMessageDeleted;
+			DiscordClient.MessagesBulkDeleted += ModuleHelper.DiscordClientOnMessagesBulkDeleted;
 			DiscordClient.MessageUpdated += ModuleHelper.DiscordClientOnMessageUpdated;
 			DiscordClient.UserJoined += ModuleHelper.DiscordClientOnUserJoined;
 			DiscordClient.UserLeft += ModuleHelper.DiscordClientOnUserLeft;
+			DiscordClient.UserUpdated += ModuleHelper.DiscordClientOnUserUpdated;
 			DiscordClient.SlashCommandExecuted += CommandHelper.ProcessApplicationCommand;
 			DiscordClient.JoinedGuild += ModuleHelper.JoinedGuild;
 			DiscordClient.LeftGuild += ModuleHelper.LeftGuild;
