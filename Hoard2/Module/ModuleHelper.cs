@@ -75,6 +75,7 @@ namespace Hoard2.Module
 
 			var instance = ModuleInstances[module];
 			if (!instance.TryUnload(guild, out failReason)) return false;
+			instance.OnUnload(guild);
 			CommandHelper.ClearModuleCommand(guild, instance);
 			guildModules.Remove(module);
 			ModuleUsageCount[module] -= 1;
@@ -136,6 +137,7 @@ namespace Hoard2.Module
 				}
 
 				if (!instance.TryLoad(guild, out failReason)) return false;
+				instance.OnLoad(guild);
 			}
 			catch (Exception e)
 			{

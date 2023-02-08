@@ -47,6 +47,10 @@ namespace Hoard2.Module
 			reason = String.Empty;
 			return true;
 		}
+
+		public virtual void OnLoad(ulong guild) { }
+
+		public virtual void OnUnload(ulong guild) { }
 	}
 
 	[AttributeUsage(AttributeTargets.Method)]
@@ -62,6 +66,16 @@ namespace Hoard2.Module
 			CommandPermissionRequirements = commandPermissionRequirements;
 		}
 
+		public ModuleCommandAttribute(string commandDescription)
+		{
+			CommandDescription = commandDescription;
+		}
+
+		public ModuleCommandAttribute(string commandDescription, GuildPermission commandPermissionRequirements) : this(commandDescription)
+		{
+			CommandPermissionRequirements = commandPermissionRequirements;
+		}
+
 		public ModuleCommandAttribute(string commandName,
 																	string commandDescription)
 		{
@@ -69,7 +83,7 @@ namespace Hoard2.Module
 			CommandDescription = commandDescription;
 		}
 
-		public string CommandName { get; init; }
+		public string? CommandName { get; init; }
 
 		public string CommandDescription { get; init; }
 

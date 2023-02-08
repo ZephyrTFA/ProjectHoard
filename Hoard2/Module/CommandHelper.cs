@@ -16,6 +16,7 @@ namespace Hoard2.Module
 
 		internal readonly ModuleBase Owner;
 		internal readonly Dictionary<string, string[]> ParamMap = new Dictionary<string, string[]>();
+		internal readonly Dictionary<string, Dictionary<string, object?>> ParamDefaultMap = new Dictionary<string, Dictionary<string, object?>>();
 		internal readonly Dictionary<string, MethodInfo> ExecutorMap = new Dictionary<string, MethodInfo>();
 		internal readonly Dictionary<string, GuildPermission> PermissionMap = new Dictionary<string, GuildPermission>();
 	}
@@ -54,10 +55,15 @@ namespace Hoard2.Module
 			}
 
 			var options = subCommand.Options;
+			var paramsGiven = options.Select(opt => opt.Name).ToList();
 			var methodParams = new object?[map.ParamMap[subCommandName].Length + 1];
 			var idx = 1;
 			foreach (var param in map.ParamMap[subCommandName])
-				methodParams[idx++] = options.First(opt => opt.Name.Equals(param)).Value;
+			{
+				if (paramsGiven.Contains(param))
+					methodParams[idx++] = options.FirstOrDefault(opt => opt.Name.Equals(param))?.Value;
+				else methodParams[idx++] = map.ParamDefaultMap[subCommandName][param];
+			}
 			methodParams[0] = command;
 
 			var executor = map.ExecutorMap[subCommandName];
@@ -73,7 +79,7 @@ namespace Hoard2.Module
 			}
 			catch (Exception e)
 			{
-				await command.Channel.SendMessageAsync($"Command experienced an Exception:\n```\n{e}\n```\n");
+				await command.Channel.SendMessageAsync($"Command experienced an Exception:\n```\n{e.Message[.. Math.Min(e.Message.Length, 1500)]}\n```\n");
 			}
 		}
 
@@ -127,16 +133,18 @@ namespace Hoard2.Module
 				}
 				methodParams = methodParams.Skip(1).ToArray();
 
+				var moduleName = commandAttribute.CommandName ?? methodInfo.Name;
 				var moduleSubCommand = new SlashCommandOptionBuilder
 				{
-					Name = commandAttribute.CommandName.MTrim(),
-					Description = commandAttribute.CommandDescription.MTrim(),
+					Name = moduleName.MTrim(),
+					Description = commandAttribute.CommandDescription,
 					Type = ApplicationCommandOptionType.SubCommand,
 				};
 				if (commandAttribute.CommandPermissionRequirements.HasValue)
 					moduleFunctionMap.PermissionMap[moduleSubCommand.Name] = commandAttribute.CommandPermissionRequirements.Value;
 
 				moduleFunctionMap.ParamMap[moduleSubCommand.Name] = new string[methodParams.Length];
+				moduleFunctionMap.ParamDefaultMap[moduleSubCommand.Name] = new Dictionary<string, object?>();
 				var paramIdx = 0;
 				foreach (var param in methodParams)
 				{
@@ -147,10 +155,17 @@ namespace Hoard2.Module
 						return false;
 					}
 
+					var paramName = param.Name!.MTrim();
+
 					var (required, type) = parsedType.Value;
+					if (param.HasDefaultValue)
+					{
+						required = false;
+						moduleFunctionMap.ParamDefaultMap[moduleSubCommand.Name][paramName] = param.DefaultValue;
+					}
 					var moduleCommandParam = new SlashCommandOptionBuilder
 					{
-						Name = param.Name!.MTrim(),
+						Name = paramName,
 						Description = param.Name!.MTrim(),
 						IsRequired = required,
 						Type = type,
@@ -186,54 +201,59 @@ namespace Hoard2.Module
 			guildCommands.FirstOrDefault(command => command.Name.MTrim().Equals(module.GetType().Name.MTrim()))?.DeleteAsync().Wait();
 		}
 
-		public static async Task RunLongCommandTask(Task task, RestInteractionMessage responseMessage)
+		public static async Task RunLongCommandTask(Func<Task> action, RestInteractionMessage responseMessage)
 		{
 			try
 			{
+				var task = action.Invoke();
 				await task;
+				if (task.Exception is { }) throw task.Exception;
 			}
 			catch (Exception exception)
 			{
-				await responseMessage.Channel.SendMessageAsync($"Command experienced an Exception: \n```\n{exception}\n```\n");
+				await responseMessage.Channel.SendMessageAsync($"Command experienced an Exception: \n```\n{exception.Message[..Math.Min(exception.Message.Length, 1500)]}\n```\n");
 			}
+		}
+
+		public static async Task ModifyOriginalResponse(this SocketSlashCommand response, string content)
+		{
+			var responseMessage = await response.GetOriginalResponseAsync();
+			await responseMessage.ModifyAsync(props => props.Content = content);
 		}
 
 		static(bool, ApplicationCommandOptionType)? AsOptionType(this Type type)
 		{
+			var required = true;
+			if (Nullable.GetUnderlyingType(type) is { } nullableType)
+			{
+				required = false;
+				type = nullableType;
+			}
+
 			if (type == typeof(bool))
-				return (true, ApplicationCommandOptionType.Boolean);
-			if (type == typeof(Optional<bool>))
-				return (false, ApplicationCommandOptionType.Boolean);
+				return (required, ApplicationCommandOptionType.Boolean);
 
 			if (type == typeof(IChannel))
-				return (true, ApplicationCommandOptionType.Channel);
-			if (type == typeof(Optional<IChannel>))
-				return (false, ApplicationCommandOptionType.Channel);
+				return (required, ApplicationCommandOptionType.Channel);
+
+			// ints are not supported by discord, use long!
+			// if (type == typeof(int))
+			// 	return (required, ApplicationCommandOptionType.Integer);
 
 			if (type == typeof(long))
-				return (true, ApplicationCommandOptionType.Integer);
-			if (type == typeof(Optional<long>))
-				return (false, ApplicationCommandOptionType.Integer);
+				return (required, ApplicationCommandOptionType.Integer);
 
 			if (type == typeof(double))
-				return (true, ApplicationCommandOptionType.Number);
-			if (type == typeof(Optional<double>))
-				return (false, ApplicationCommandOptionType.Number);
+				return (required, ApplicationCommandOptionType.Number);
 
 			if (type == typeof(IRole))
-				return (true, ApplicationCommandOptionType.Role);
-			if (type == typeof(Optional<IRole>))
-				return (false, ApplicationCommandOptionType.Role);
+				return (required, ApplicationCommandOptionType.Role);
 
 			if (type == typeof(string))
-				return (true, ApplicationCommandOptionType.String);
-			if (type == typeof(Optional<string>))
-				return (false, ApplicationCommandOptionType.String);
+				return (required, ApplicationCommandOptionType.String);
 
 			if (type == typeof(IUser))
-				return (true, ApplicationCommandOptionType.User);
-			if (type == typeof(Optional<IUser>))
-				return (false, ApplicationCommandOptionType.User);
+				return (required, ApplicationCommandOptionType.User);
 
 			return null;
 		}
