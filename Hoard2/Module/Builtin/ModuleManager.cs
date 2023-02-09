@@ -1,4 +1,6 @@
-﻿using Discord;
+﻿using System.Text;
+
+using Discord;
 using Discord.WebSocket;
 
 namespace Hoard2.Module.Builtin
@@ -29,6 +31,19 @@ namespace Hoard2.Module.Builtin
 			}
 			await command.RespondAsync("Unloading...");
 			_ = CommandHelper.RunLongCommandTask(UnloadModuleActual, await command.GetOriginalResponseAsync());
+		}
+
+		[ModuleCommand("See all available modules", GuildPermission.Administrator)]
+		public static async Task ListModules(SocketSlashCommand command)
+		{
+			var response = new StringBuilder();
+			response.AppendLine($"There are currently {ModuleHelper.ModuleTypes.Count} modules:\n```diff");
+			foreach (var (moduleId, _) in ModuleHelper.ModuleTypes)
+			{
+				var loaded = ModuleHelper.IsModuleLoaded(command.GuildId!.Value, moduleId);
+				response.AppendLine($"{(loaded ? "+" : "-")} | {moduleId}");
+			}
+			await command.RespondAsync(response.ToString());
 		}
 	}
 }

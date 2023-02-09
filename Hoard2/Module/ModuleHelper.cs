@@ -40,6 +40,12 @@ namespace Hoard2.Module
 			return GuildModules[guild].Contains(moduleId);
 		}
 
+		public static bool IsModuleLoaded(ulong guild, string module)
+		{
+			if (!GuildModules.ContainsKey(guild)) return false;
+			return GuildModules[guild].Contains(module);
+		}
+
 		public static void LoadAssembly(Assembly assembly, out List<string> errors)
 		{
 			errors = new List<string>();

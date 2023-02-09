@@ -55,6 +55,7 @@ namespace Hoard2.Module.Builtin
 			}
 
 			await command.RespondAsync("Shutting down...");
+			await CommandHelper.WipeAllGuildCommands();
 			HoardMain.Logger.LogInformation("Shutting down");
 			HoardMain.StopWorker();
 		}

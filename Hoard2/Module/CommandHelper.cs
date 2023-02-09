@@ -44,6 +44,7 @@ namespace Hoard2.Module
 		internal string Description;
 		internal MethodInfo Executor;
 		internal List<ParameterInfo> Params;
+		internal GuildPermission? Permission;
 
 		List<Type> _loadedParamTypes;
 		List<string> _loadedParamNames;
@@ -172,7 +173,7 @@ namespace Hoard2.Module
 
 		public static async Task ProcessApplicationCommand(SocketSlashCommand command)
 		{
-			if (command.User is not SocketGuildUser) return;
+			if (command.User is not SocketGuildUser user) return;
 			if (!ModuleNameMap.TryGetValue(command.CommandName, out var commandOwner)) return;
 			if (!ModuleHelper.IsModuleLoaded(command.GuildId!.Value, commandOwner))
 				return;
@@ -188,6 +189,12 @@ namespace Hoard2.Module
 			if (!moduleFunctionMap.SubCommands.Any(subCommand => subCommand.Name.Equals(subCommandName)))
 				return;
 			var subCommandMap = moduleFunctionMap.SubCommands.First(subCommand => subCommand.Name.Equals(subCommandName));
+
+			if (subCommandMap.Permission is not null && !user.GuildPermissions.Has(subCommandMap.Permission.Value))
+			{
+				await command.RespondAsync("You do not have permission to run this command.", ephemeral: true);
+				return;
+			}
 
 			var commandParams = new object?[subCommandMap.ParamTypes.Count + 1];
 			var idx = 1;
@@ -259,7 +266,7 @@ namespace Hoard2.Module
 			await SaveMapInformation();
 		}
 
-		public static async Task WipeAllGuildCommands(SocketSlashCommand? originator)
+		public static async Task WipeAllGuildCommands(SocketSlashCommand? originator = null)
 		{
 			var allCommands = HoardMain.DiscordClient.Guilds.SelectMany(discordClientGuild =>
 				discordClientGuild.GetApplicationCommandsAsync().GetAwaiter().GetResult()).ToList();
@@ -306,6 +313,7 @@ namespace Hoard2.Module
 					Description = moduleCommandAttribute.CommandDescription,
 					Executor = executor,
 					Params = executor.GetParameters().Skip(1).ToList(), // could technically just get this from Executor, but this is nicer
+					Permission = moduleCommandAttribute.CommandPermissionRequirements,
 				};
 
 				bool FindPred(CommandMap commMap) => commMap.Executor.Name.Equals(executor.Name);
@@ -315,6 +323,7 @@ namespace Hoard2.Module
 					if (!known.NeedsRefresh(functionMap))
 					{
 						known.Params = functionMap.Params;
+						known.Permission = functionMap.Permission;
 						refreshed.Add(known);
 						continue;
 					}
