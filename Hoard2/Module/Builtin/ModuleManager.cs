@@ -43,6 +43,7 @@ namespace Hoard2.Module.Builtin
 				var loaded = ModuleHelper.IsModuleLoaded(command.GuildId!.Value, moduleId);
 				response.AppendLine($"{(loaded ? "+" : "-")} | {moduleId}");
 			}
+			response.AppendLine("```");
 			await command.RespondAsync(response.ToString());
 		}
 	}
