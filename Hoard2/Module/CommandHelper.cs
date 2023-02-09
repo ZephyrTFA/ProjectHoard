@@ -259,11 +259,19 @@ namespace Hoard2.Module
 			await SaveMapInformation();
 		}
 
-		public static async Task WipeAllGuildCommands()
+		public static async Task WipeAllGuildCommands(SocketSlashCommand? originator)
 		{
-			foreach (var discordClientGuild in HoardMain.DiscordClient.Guilds)
-				foreach (var guildCommand in await discordClientGuild.GetApplicationCommandsAsync())
-					await guildCommand.DeleteAsync();
+			var allCommands = HoardMain.DiscordClient.Guilds.SelectMany(discordClientGuild =>
+				discordClientGuild.GetApplicationCommandsAsync().GetAwaiter().GetResult()).ToList();
+
+			for (var i = 0; i < allCommands.Count; i++)
+			{
+				if (i % 5 == 0)
+					await (originator?.ModifyOriginalResponse($"Wiping {i}/{allCommands.Count}") ?? Task.CompletedTask);
+				await allCommands[i].DeleteAsync();
+			}
+			await (originator?.ModifyOriginalResponse("Complete") ?? Task.CompletedTask);
+
 			GuildCommandMap.Clear();
 			ModuleNameMap.Clear();
 			ModuleCommandMap.Clear();
