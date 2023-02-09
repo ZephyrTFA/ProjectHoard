@@ -302,6 +302,7 @@ namespace Hoard2.Module
 					var known = knownSubCommands.First(FindPred);
 					if (!known.NeedsRefresh(functionMap))
 					{
+						known.Params = functionMap.Params;
 						refreshed.Add(known);
 						continue;
 					}
