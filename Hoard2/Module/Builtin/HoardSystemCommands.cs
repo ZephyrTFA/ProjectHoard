@@ -32,7 +32,7 @@ namespace Hoard2.Module.Builtin
 			await command.RespondAsync("Working...");
 			var task = new Task(() =>
 			{
-				CommandHelper.WipeAllGuildCommands().Wait();
+				CommandHelper.WipeAllGuildCommands(command).Wait();
 				CommandHelper.RefreshAllGuildCommands().Wait();
 			});
 			_ = task.ContinueWith(_ =>
