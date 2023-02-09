@@ -22,7 +22,7 @@ namespace Hoard2
 			HoardHost.StopAsync(CancellationToken.None);
 		}
 
-		public static void Initialize(ILogger<Worker> log, CancellationToken workerToken)
+		public static async Task Initialize(ILogger<Worker> log, CancellationToken workerToken)
 		{
 			HoardToken = workerToken;
 			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
@@ -37,6 +37,8 @@ namespace Hoard2
 			DataDirectory = new DirectoryInfo($"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)}/ProjectHoard");
 			if (!DataDirectory.Exists)
 				DataDirectory.Create();
+			CommandHelper.MapInfoStore = new FileInfo(Path.Join(DataDirectory.FullName, "command-store.xml"));
+			await CommandHelper.LoadMapInformation();
 		}
 
 		static Task HandleDiscordLog(LogMessage message)
@@ -102,8 +104,7 @@ namespace Hoard2
 			await DiscordClient.SetStatusAsync(UserStatus.DoNotDisturb);
 			await DiscordClient.CurrentUser.ModifyAsync(properties => properties.Username = "Project Hoard");
 
-			await RestoreModules();
-
+			await ModuleHelper.RestoreModules();
 			await DiscordClient.SetStatusAsync(UserStatus.Online);
 			Logger.LogInformation("Hoard Ready");
 			return true;
@@ -132,16 +133,5 @@ namespace Hoard2
 		}
 
 		public static string GetGuildConfigFolder(ulong guild) => DataDirectory.CreateSubdirectory(guild.ToString()).FullName;
-
-		public static async Task RestoreModules()
-		{
-			var allCommands = (await DiscordClient.GetGlobalApplicationCommandsAsync()).ToList();
-			foreach (var guild in DiscordClient.Guilds)
-				allCommands.AddRange(await guild.GetApplicationCommandsAsync());
-			foreach (var command in allCommands)
-				await command.DeleteAsync(new RequestOptions { RetryMode = RetryMode.RetryRatelimit });
-
-			ModuleHelper.RestoreModules();
-		}
 	}
 }

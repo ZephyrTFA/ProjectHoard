@@ -12,12 +12,9 @@ namespace Hoard2.Module.Builtin
 		{
 			async Task LoadModuleActual()
 			{
-				if (!ModuleHelper.LoadModule(command.GuildId!.Value, moduleId, out var failReason))
-					await command.ModifyOriginalResponse($"Failed to load module: {failReason}");
-				else
-					await command.ModifyOriginalResponse("Loaded module.");
+				await ModuleHelper.LoadModule(command.GuildId!.Value, moduleId);
+				await command.ModifyOriginalResponse("Module loaded.");
 			}
-
 			await command.RespondAsync("Loading...");
 			_ = CommandHelper.RunLongCommandTask(LoadModuleActual, await command.GetOriginalResponseAsync());
 		}
@@ -27,12 +24,9 @@ namespace Hoard2.Module.Builtin
 		{
 			async Task UnloadModuleActual()
 			{
-				if (!ModuleHelper.UnloadModule(command.GuildId!.Value, moduleId, out var failReason))
-					await command.ModifyOriginalResponse($"Failed to unload module: {failReason}");
-				else
-					await command.ModifyOriginalResponse("Unloaded module.");
+				await ModuleHelper.UnloadModule(command.GuildId!.Value, moduleId);
+				await command.ModifyOriginalResponse("Module unloaded.");
 			}
-
 			await command.RespondAsync("Unloading...");
 			_ = CommandHelper.RunLongCommandTask(UnloadModuleActual, await command.GetOriginalResponseAsync());
 		}

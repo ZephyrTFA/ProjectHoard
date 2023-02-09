@@ -28,7 +28,7 @@ public class Worker : BackgroundService
 	public override async Task StartAsync(CancellationToken stoppingToken)
 	{
 		_logger.LogInformation("Starting");
-		HoardMain.Initialize(_logger, stoppingToken);
+		await HoardMain.Initialize(_logger, stoppingToken);
 		await base.StartAsync(stoppingToken);
 	}
 

@@ -34,7 +34,6 @@ namespace Hoard2.Module.Builtin
 			HoardMain.StopWorker();
 		}
 
-
 		public override bool TryLoad(ulong guild, out string reason)
 		{
 			reason = "not an operator guild";

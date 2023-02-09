@@ -4,6 +4,8 @@ using System.Runtime.Serialization;
 using Discord;
 using Discord.WebSocket;
 
+using Hoard2.Module.Builtin;
+
 namespace Hoard2.Module
 {
 	public static class ModuleHelper
@@ -13,10 +15,10 @@ namespace Hoard2.Module
 		public static readonly Dictionary<ulong, List<string>> GuildModules = new Dictionary<ulong, List<string>>();
 		public static readonly Dictionary<string, uint> ModuleUsageCount = new Dictionary<string, uint>();
 
-		public static readonly IReadOnlyList<string> SystemModules = new[]
+		public static readonly IReadOnlyList<Type> SystemModules = new[]
 		{
-			"ModuleManager",
-			"UserDataHelper",
+			typeof(ModuleManager),
+			typeof(UserDataHelper),
 		};
 
 		static bool _restoring;
@@ -31,6 +33,13 @@ namespace Hoard2.Module
 			return (T?)ModuleInstances.Select(kvp => kvp.Value).FirstOrDefault(module => module.GetType() == typeof(T));
 		}
 
+		public static bool IsModuleLoaded(ulong guild, ModuleBase module)
+		{
+			var moduleId = module.GetModuleName();
+			if (!GuildModules.ContainsKey(guild)) return false;
+			return GuildModules[guild].Contains(moduleId);
+		}
+
 		public static void LoadAssembly(Assembly assembly, out List<string> errors)
 		{
 			errors = new List<string>();
@@ -38,7 +47,7 @@ namespace Hoard2.Module
 			{
 				if (type.BaseType == typeof(ModuleBase))
 				{
-					var moduleId = type.Name.ToLower();
+					var moduleId = type.Name.MTrim();
 					if (ModuleTypes.ContainsKey(moduleId))
 					{
 						errors.Add($"Conflicting module {moduleId} in assembly ({assembly.FullName}){assembly.Location}");
@@ -52,31 +61,25 @@ namespace Hoard2.Module
 			HoardMain.DiscordClient.SetGameAsync($"{ModuleTypes.Count} modules", type: ActivityType.Watching).Wait();
 		}
 
-		public static bool UnloadModule(ulong guild, string module, out string failReason)
+		public static async Task UnloadModule(ulong guild, string module)
 		{
 			HoardMain.Logger.LogInformation("Trying to unload module '{}' for guild '{}'", module, guild);
-			failReason = String.Empty;
-			module = module.ToLower().Trim();
+			module = module.MTrim();
 
 			if (!GuildModules.ContainsKey(guild)) GuildModules[guild] = new List<string>();
 			var guildModules = GuildModules[guild];
 
 			if (!guildModules.Contains(module))
-			{
-				failReason = "module not loaded";
-				return false;
-			}
-
-			if (SystemModules.Any(entry => entry.ToLower().Trim().Equals(module)))
-			{
-				failReason = "cannot unload a system module";
-				return false;
-			}
+				throw new Exception("module not loaded");
+			if (SystemModules.Any(entry => entry.Name.MTrim().Equals(module)))
+				throw new Exception("cannot unload a system module");
 
 			var instance = ModuleInstances[module];
-			if (!instance.TryUnload(guild, out failReason)) return false;
+			if (!instance.TryUnload(guild, out var failReason))
+				throw new Exception($"Failed to unload module: {failReason}");
+
 			instance.OnUnload(guild);
-			CommandHelper.ClearModuleCommand(guild, instance);
+			await CommandHelper.WipeGuildModuleCommand(guild, instance);
 			guildModules.Remove(module);
 			ModuleUsageCount[module] -= 1;
 
@@ -84,7 +87,6 @@ namespace Hoard2.Module
 				HandleModuleDestroy(instance);
 			SaveLoadedModules();
 			HoardMain.Logger.LogInformation("Unload complete");
-			return true;
 		}
 
 		public static void HandleModuleDestroy(ModuleBase module)
@@ -95,60 +97,42 @@ namespace Hoard2.Module
 			ModuleUsageCount.Remove(moduleName);
 		}
 
-		public static bool LoadModule(ulong guild, string module, out string failReason)
+		public static async Task LoadModule(ulong guild, string module)
 		{
 			HoardMain.Logger.LogInformation("Trying to load module '{}' for guild '{}'", module, guild);
-			failReason = String.Empty;
-			module = module.ToLower().Trim();
+			module = module.MTrim();
 
 			if (!GuildModules.ContainsKey(guild)) GuildModules[guild] = new List<string>();
 			var guildModules = GuildModules[guild];
 
 			if (guildModules.Contains(module))
-			{
-				failReason = "module already loaded";
-				return false;
-			}
+				throw new Exception("Module is already loaded");
 
 			if (!ModuleTypes.ContainsKey(module))
+				throw new Exception("Module does not exist");
+
+			// if an instance doesn't exist, create one
+			if (!ModuleInstances.TryGetValue(module, out var instance))
 			{
-				failReason = "module does not exist";
-				return false;
+				HoardMain.Logger.LogInformation("Creating module {}", module);
+				ModuleUsageCount[module] = 0;
+				if (ModuleTypes[module]
+						.GetConstructor(new[] { typeof(string) })?
+						.Invoke(new object?[] { HoardMain.DataDirectory.CreateSubdirectory("config").CreateSubdirectory(module).FullName })
+					is not ModuleBase newInstance)
+					throw new Exception("Failed to find or invoke module constructor");
+
+				ModuleInstances[module] = instance = newInstance;
 			}
 
-			try
-			{
-				// if an instance doesn't exist, create one
-				if (!ModuleInstances.TryGetValue(module, out var instance))
-				{
-					HoardMain.Logger.LogInformation("Creating module {}", module);
-					ModuleUsageCount[module] = 0;
-					if (ModuleTypes[module]
-							.GetConstructor(new[] { typeof(string) })?
-							.Invoke(new object?[] { HoardMain.DataDirectory.CreateSubdirectory("config").CreateSubdirectory(module).FullName })
-						is not ModuleBase newInstance)
-					{
-						failReason = "failed to find or invoke module constructor";
-						return false;
-					}
-
-					if (!CommandHelper.RefreshModuleCommands(guild, newInstance, out failReason)) return false;
-					ModuleInstances[module] = instance = newInstance;
-				}
-
-				if (!instance.TryLoad(guild, out failReason)) return false;
-				instance.OnLoad(guild);
-			}
-			catch (Exception e)
-			{
-				failReason = $"exception during module load: {e}";
-				return false;
-			}
+			if (!instance.TryLoad(guild, out var failReason))
+				throw new Exception($"Module failed to load: {failReason}");
+			await CommandHelper.UpdateGuildModuleCommand(guild, instance);
+			instance.OnLoad(guild);
 
 			ModuleUsageCount[module] += 1;
 			guildModules.Add(module);
 			SaveLoadedModules();
-			return true;
 		}
 
 		static void SaveLoadedModules()
@@ -161,7 +145,7 @@ namespace Hoard2.Module
 			writer.Dispose();
 		}
 
-		public static void RestoreModules()
+		public static async Task RestoreModules()
 		{
 			if (_restoring) return; // already restoring
 
@@ -173,13 +157,13 @@ namespace Hoard2.Module
 			HoardMain.Logger.LogInformation("Restoring Modules");
 			foreach (var guild in HoardMain.DiscordClient.Guilds)
 				foreach (var systemModule in SystemModules)
-					if (!LoadModule(guild.Id, systemModule, out var reason))
-						HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", systemModule, reason);
+					try { await LoadModule(guild.Id, systemModule.Name.MTrim()); }
+					catch (Exception e) { HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", systemModule, e); }
 
 			foreach (var (guild, modules) in CheckLoadedModules())
-				foreach (var module in modules.Where(module => !SystemModules.Any(entry => entry.ToLower().Trim().Equals(module))))
-					if (!LoadModule(guild, module, out var reason))
-						HoardMain.Logger.LogCritical("Failed to restore module {}: {}", module, reason);
+				foreach (var module in modules.Where(module => !SystemModules.Any(entry => entry.Name.MTrim().Equals(module))))
+					try { await LoadModule(guild, module); }
+					catch (Exception e) { HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", module, e); }
 			_restoring = false;
 		}
 
@@ -208,14 +192,12 @@ namespace Hoard2.Module
 				await module.DiscordClientOnUserJoined(socketGuildUser);
 		}
 
-		internal static Task DiscordClientOnUserUpdated(SocketUser arg1, SocketUser arg2)
+		internal static async Task DiscordClientOnUserUpdated(SocketUser arg1, SocketUser arg2)
 		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return Task.CompletedTask;
-			if (!GuildModules.TryGetValue(arg1.Id, out var modules)) return Task.CompletedTask;
-			return Task.CompletedTask;
-			// foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-			// 	await module.DiscordClientOnUserUpdated((SocketGuildUser)arg1, (SocketGuildUser)arg2);
-			// todo
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
+			if (!GuildModules.TryGetValue(arg1.Id, out var modules)) return;
+			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
+				await module.DiscordClientOnUserUpdated((SocketGuildUser)arg1, (SocketGuildUser)arg2);
 		}
 
 		internal static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> cacheableMessage, SocketMessage socketMessage, ISocketMessageChannel socketMessageChannel)
@@ -270,8 +252,8 @@ namespace Hoard2.Module
 			if (HoardMain.HoardToken.IsCancellationRequested) return;
 			await guild.DeleteApplicationCommandsAsync();
 			foreach (var systemModule in SystemModules)
-				if (!LoadModule(guild.Id, systemModule, out var reason))
-					HoardMain.Logger.LogCritical("Failed to load system module {}: {}", systemModule, reason);
+				try { await LoadModule(guild.Id, systemModule.Name.MTrim()); }
+				catch (Exception e) { HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", systemModule, e); }
 		}
 
 		internal static Task LeftGuild(SocketGuild guild)

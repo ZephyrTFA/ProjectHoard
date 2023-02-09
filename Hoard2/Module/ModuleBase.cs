@@ -20,6 +20,8 @@ namespace Hoard2.Module
 
 		protected ModuleConfig GlobalConfig { get; init; }
 
+		public string GetModuleName() => GetType().Name.MTrim();
+
 		public ModuleConfig GuildConfig(ulong guild) => new ModuleConfig(Path.Join(_configDirectory, $"{guild}.xml"));
 
 		public ModuleConfig CustomConfig(string key) => new ModuleConfig(Path.Join(_configDirectory, "custom", key));
@@ -30,11 +32,15 @@ namespace Hoard2.Module
 
 		public virtual Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser) => Task.CompletedTask;
 
+		public virtual Task DiscordClientOnUserUpdated(SocketGuildUser originalUser, SocketGuildUser newUser) => Task.CompletedTask;
+
 		public virtual Task DiscordClientOnMessageUpdated(IMessage originalMessage, SocketMessage newMessage, IGuildChannel socketMessageChannel) => Task.CompletedTask;
 
 		public virtual Task DiscordClientOnMessageDeleted(IMessage message, IGuildChannel channel) => Task.CompletedTask;
 
 		public virtual Task DiscordClientOnMessageReceived(IMessage message) => Task.CompletedTask;
+
+		public virtual async Task ModuleCommand(SocketSlashCommand command) => await command.RespondAsync("Module did not implement base command!", ephemeral: true);
 
 		public virtual bool TryLoad(ulong guild, out string reason)
 		{
