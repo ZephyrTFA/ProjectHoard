@@ -264,6 +264,10 @@ namespace Hoard2.Module
 			foreach (var discordClientGuild in HoardMain.DiscordClient.Guilds)
 				foreach (var guildCommand in await discordClientGuild.GetApplicationCommandsAsync())
 					await guildCommand.DeleteAsync();
+			GuildCommandMap.Clear();
+			ModuleNameMap.Clear();
+			ModuleCommandMap.Clear();
+			await SaveMapInformation();
 		}
 
 		public static async Task RefreshAllGuildCommands()
