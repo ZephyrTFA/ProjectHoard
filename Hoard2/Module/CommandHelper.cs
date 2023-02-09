@@ -259,6 +259,23 @@ namespace Hoard2.Module
 			await SaveMapInformation();
 		}
 
+		public static async Task WipeAllGuildCommands()
+		{
+			foreach (var discordClientGuild in HoardMain.DiscordClient.Guilds)
+				foreach (var guildCommand in await discordClientGuild.GetApplicationCommandsAsync())
+					await guildCommand.DeleteAsync();
+		}
+
+		public static async Task RefreshAllGuildCommands()
+		{
+			foreach (var discordClientGuild in HoardMain.DiscordClient.Guilds)
+			{
+				if (!ModuleHelper.GuildModules.ContainsKey(discordClientGuild.Id)) continue;
+				foreach (var loadedModule in ModuleHelper.GuildModules[discordClientGuild.Id])
+					await UpdateGuildModuleCommand(discordClientGuild.Id, ModuleHelper.ModuleInstances[loadedModule]);
+			}
+		}
+
 		public static async Task<Optional<SlashCommandBuilder>> RefreshModuleCommands(ulong guild, ModuleBase module)
 		{
 			HoardMain.Logger.LogInformation("Refreshing module commands for {}", module);
