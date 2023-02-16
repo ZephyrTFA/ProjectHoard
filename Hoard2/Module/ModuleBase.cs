@@ -12,6 +12,10 @@ namespace Hoard2.Module
 	public class ModuleBase
 	{
 		string _configDirectory;
+
+		List<Guid> _knownButtons = new List<Guid>();
+
+		List<Guid> _knownMenus = new List<Guid>();
 		public ModuleBase(string configPath)
 		{
 			_configDirectory = configPath;
@@ -58,9 +62,30 @@ namespace Hoard2.Module
 
 		public virtual void OnUnload(ulong guild) { }
 
-		public virtual Task OnButton(SocketMessageComponent button, string buttonId, ulong guild) => Task.CompletedTask;
+		public virtual Task OnButton(SocketMessageComponent button, string buttonId) => Task.CompletedTask;
 
-		public ButtonBuilder GetButton(string buttonID, ulong guild) => new ButtonBuilder().WithCustomId($"h/{GetModuleName()}/{buttonID}");
+		public virtual Task OnMenu(SocketMessageComponent menu, string menuId) => Task.CompletedTask;
+
+		public ButtonBuilder GetButton(string buttonID, ulong guild)
+		{
+			Guid id;
+			do { id = Guid.NewGuid(); }
+			while (_knownButtons.Contains(id));
+			_knownButtons.Add(id);
+			return new ButtonBuilder().WithCustomId($"h/{GetModuleName()}/{id}/{buttonID}");
+		}
+		public SelectMenuBuilder GetMenu(string menuId, ulong guild)
+		{
+			Guid id;
+			do { id = Guid.NewGuid(); }
+			while (_knownMenus.Contains(id));
+			_knownMenus.Add(id);
+			return new SelectMenuBuilder().WithCustomId($"h/{GetModuleName()}/{id}/{menuId}");
+		}
+
+		public bool CheckButton(Guid button) => _knownButtons.Contains(button);
+
+		public bool CheckMenu(Guid menu) => _knownMenus.Contains(menu);
 	}
 
 	[AttributeUsage(AttributeTargets.Method)]

@@ -271,20 +271,67 @@ namespace Hoard2.Module
 			return Task.CompletedTask;
 		}
 
+		internal static(string, Guid, string)? GetCompInfo(this SocketMessageComponent comp)
+		{
+			var componentId = comp.Data.CustomId;
+			if (!componentId.StartsWith("h/"))
+				return null;
+			try
+			{
+				var data = componentId[2..].Split("/");
+				var moduleId = data[0];
+				var compGuid = Guid.Parse(data[1]);
+				return (moduleId, compGuid, data[2..].Aggregate((s1, s2) => $"{s1}/{s2}"));
+			}
+			catch (Exception e)
+			{
+				HoardMain.Logger.LogWarning("Failed to parse component information: {}", e);
+				return null;
+			}
+		}
+
 		internal static async Task OnButton(SocketMessageComponent button)
 		{
-			var buttonId = button.Data.CustomId;
-			if (!buttonId.StartsWith("h/"))
-				return;
-			var buttonModuleIdPair = buttonId[2..];
-			var moduleCutoff = buttonModuleIdPair.IndexOf('/');
-			var module = buttonModuleIdPair[..moduleCutoff];
-			var id = buttonModuleIdPair[(moduleCutoff + 1)..];
+			var info = button.GetCompInfo();
+			if (!info.HasValue) return;
+			var (module, guid, id) = info.Value;
 
 			if (!IsModuleLoaded(button.GuildId!.Value, module))
 				return;
 			var instance = ModuleInstances[module];
-			await instance.OnButton(button, id, button.GuildId!.Value);
+			try
+			{
+				if (instance.CheckButton(guid))
+					await instance.OnButton(button, id);
+				else
+					await button.RespondAsync("Button Interaction errored: `Invalid Button Guid`", ephemeral: true);
+			}
+			catch (Exception e)
+			{
+				await button.Channel.SendMessageAsync($"Button Interaction errored: {e.Message}");
+			}
+		}
+
+		internal static async Task OnMenu(SocketMessageComponent menu)
+		{
+			var info = menu.GetCompInfo();
+			if (!info.HasValue) return;
+			var (module, guid, id) = info.Value;
+
+			if (!IsModuleLoaded(menu.GuildId!.Value, module))
+				return;
+			var instance = ModuleInstances[module];
+			try
+			{
+				if (instance.CheckMenu(guid))
+					await instance.OnMenu(menu, id);
+				else
+					await menu.RespondAsync("Menu Interaction errored: `Invalid Menu Guid`", ephemeral: true);
+			}
+			catch (Exception e)
+			{
+				await menu.Channel.SendMessageAsync($"Menu Interaction errored: {e.Message}");
+			}
 		}
 	}
 }
