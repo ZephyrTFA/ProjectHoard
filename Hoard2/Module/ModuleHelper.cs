@@ -270,5 +270,21 @@ namespace Hoard2.Module
 			SaveLoadedModules();
 			return Task.CompletedTask;
 		}
+
+		internal static async Task OnButton(SocketMessageComponent button)
+		{
+			var buttonId = button.Data.CustomId;
+			if (!buttonId.StartsWith("h/"))
+				return;
+			var buttonModuleIdPair = buttonId[2..];
+			var moduleCutoff = buttonModuleIdPair.IndexOf('/');
+			var module = buttonModuleIdPair[..moduleCutoff];
+			var id = buttonModuleIdPair[(moduleCutoff + 1)..];
+
+			if (!IsModuleLoaded(button.GuildId!.Value, module))
+				return;
+			var instance = ModuleInstances[module];
+			await instance.OnButton(button, id, button.GuildId!.Value);
+		}
 	}
 }

@@ -8,6 +8,7 @@ using Octokit;
 using Octokit.Internal;
 
 using Tgstation.Server.Api.Models;
+using Tgstation.Server.Api.Models.Request;
 using Tgstation.Server.Api.Models.Response;
 using Tgstation.Server.Client;
 using Tgstation.Server.Client.Components;
@@ -18,6 +19,14 @@ namespace Hoard2.Module.Builtin
 {
 	static class TgsHelpers
 	{
+		/// (SoftRestart, SoftShutdown)
+		internal static string RestartType(this(bool, bool) pair)
+		{
+			if (pair is { Item1: false, Item2: false }) return "Nothing";
+			if (pair.Item1) return "Restart";
+			return "Shutdown";
+		}
+
 		internal static string ManglePassword(this string password)
 		{
 			var utf8 = Encoding.UTF8.GetBytes(password);
@@ -38,11 +47,18 @@ namespace Hoard2.Module.Builtin
 		internal static bool IsExpired(this TokenResponse token) => token.ExpiresAt.CompareTo(DateTimeOffset.UtcNow) < 0;
 	}
 
+	public struct DaemonPanelStore
+	{
+		public long InstanceId;
+		public ulong ChannelId, MessageId, GuildId;
+	}
+
 	public class TgsLink : ModuleBase
 	{
 		Dictionary<SocketGuildUser, IServerClient> _tgsCache;
 
 		Dictionary<ulong, Dictionary<string, TokenResponse>> _usernameTokenMap = new Dictionary<ulong, Dictionary<string, TokenResponse>>();
+		Dictionary<ulong, DaemonPanelStore> _userPanels = new Dictionary<ulong, DaemonPanelStore>();
 
 		public ServerClientFactory ClientFactory = new ServerClientFactory(new ProductHeaderValue("TgsLink"));
 		public TgsLink(string configPath) : base(configPath)
@@ -307,6 +323,168 @@ namespace Hoard2.Module.Builtin
 
 			await command.RespondAsync("Working...");
 			_ = CommandHelper.RunLongCommandTask(Action, await command.GetOriginalResponseAsync());
+		}
+
+		[ModuleCommand("Check and update DreamDaemon")]
+		public async Task Daemon(SocketSlashCommand command, long instanceId = 1)
+		{
+			var (embed, menu) = await DaemonPanel((SocketGuildUser)command.User, instanceId, command.GuildId!.Value);
+			await command.RespondAsync(embed: embed, components: menu);
+			var original = await command.GetOriginalResponseAsync();
+			_userPanels[command.User.Id] = new DaemonPanelStore
+			{
+				ChannelId = command.Channel.Id,
+				GuildId = command.GuildId!.Value,
+				InstanceId = instanceId,
+				MessageId = original.Id,
+			};
+		}
+
+		async Task UpdateUserDaemonPanel(SocketGuildUser user)
+		{
+			if (!_userPanels.ContainsKey(user.Id))
+				return;
+			var store = _userPanels[user.Id];
+			var channelInstance = await HoardMain.DiscordClient.GetChannelAsync(store.ChannelId) as IMessageChannel;
+			await channelInstance!.ModifyMessageAsync(store.MessageId, props =>
+			{
+				(props.Embed, props.Components) = DaemonPanel(user, store.InstanceId, store.GuildId).GetAwaiter().GetResult();
+			});
+		}
+
+		async Task<(Embed, MessageComponent)> DaemonPanel(SocketGuildUser user, long instanceId, ulong guildId)
+		{
+			var instance = await GetTgsInstance(user, instanceId);
+			var daemon = await instance.DreamDaemon.Read(CancellationToken.None);
+
+			var embed = new EmbedBuilder().WithTitle($"Dream Daemon Panel - {instance.Metadata.Name}");
+			var isOnline = daemon.Status != WatchdogStatus.Offline;
+			embed.AddField("Watchdog State", isOnline ? "ONLINE" : "OFFLINE");
+
+			var menu = new ComponentBuilder();
+			menu.AddRow(new ActionRowBuilder().WithButton("Refresh Panel", "tgs/refresh"));
+
+			var shutdownRow = new ActionRowBuilder();
+			foreach (var button in GetLaunchButtons(daemon, instanceId, guildId))
+				shutdownRow.WithButton(button);
+			menu.AddRow(shutdownRow);
+
+			if (isOnline)
+			{
+				embed.AddField("Restart Type", (daemon.SoftRestart ?? false, daemon.SoftShutdown ?? false).RestartType());
+				var restartTypeRow = new ActionRowBuilder();
+				foreach (var restartTypeButton in GetRestartTypeButtons(daemon, instanceId, guildId))
+					restartTypeRow.WithButton(restartTypeButton);
+				menu.AddRow(restartTypeRow);
+			}
+
+			return (embed.Build(), menu.Build());
+		}
+
+		ButtonBuilder[] GetRestartTypeButtons(DreamDaemonResponse instance, long instanceId, ulong guildId)
+		{
+			var isGraceful = instance.SoftShutdown ?? false;
+			var isRestart = instance.SoftRestart ?? false;
+			var buttonGraceful = GetButton($"tgs/restart-type/{instanceId}/shutdown", guildId)
+				.WithDisabled(isGraceful)
+				.WithStyle(ButtonStyle.Danger)
+				.WithLabel("Graceful");
+			var buttonRestart = GetButton($"tgs/restart-type/{instanceId}/restart", guildId)
+				.WithDisabled(isRestart)
+				.WithStyle(ButtonStyle.Primary)
+				.WithLabel("Restart");
+			var buttonNothing = GetButton($"tgs/restart-type/{instanceId}/nothing", guildId)
+				.WithDisabled(!isGraceful && !isRestart)
+				.WithStyle(ButtonStyle.Secondary)
+				.WithLabel("Nothing");
+			return new[] { buttonGraceful, buttonRestart, buttonNothing };
+		}
+
+		ButtonBuilder[] GetLaunchButtons(DreamDaemonResponse instance, long instanceId, ulong guildId)
+		{
+			var canLaunch = instance.Status == WatchdogStatus.Offline;
+			var canShutdown = instance.Status == WatchdogStatus.Online;
+
+			var buttonLaunch = GetButton($"tgs/set-watchdog/{instanceId}/launch", guildId)
+				.WithDisabled(!canLaunch)
+				.WithStyle(ButtonStyle.Success)
+				.WithLabel("Launch");
+			var buttonShutdown = GetButton($"tgs/set-watchdog/{instanceId}/shutdown", guildId)
+				.WithDisabled(!canShutdown)
+				.WithStyle(ButtonStyle.Danger)
+				.WithLabel("Shutdown");
+			return new[] { buttonLaunch, buttonShutdown };
+		}
+
+		public override async Task OnButton(SocketMessageComponent button, string buttonId, ulong guild)
+		{
+			if (buttonId.StartsWith("tgs/"))
+			{
+				var split = buttonId.Split("/");
+				var command = split[1];
+				var instance = Int64.Parse(split[2]);
+				var modifier = split.Length >= 4 ? split[3] : null;
+
+				var instanceActual = await GetTgsInstance((SocketGuildUser)button.User, instance);
+				switch (command)
+				{
+					case "refresh":
+						await button.RespondAsync("Updating your panel...", ephemeral: true);
+						await UpdateUserDaemonPanel((SocketGuildUser)button.User);
+						return;
+
+					case "restart-type":
+						switch (modifier)
+						{
+							case "nothing":
+								await instanceActual.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = false, SoftShutdown = false }, CancellationToken.None);
+								await button.RespondAsync("World Reboot is now normal.");
+								await UpdateUserDaemonPanel((SocketGuildUser)button.User);
+								return;
+
+							case "restart":
+								await instanceActual.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = true, SoftShutdown = false }, CancellationToken.None);
+								await button.RespondAsync("World Reboot will now restart.");
+								await UpdateUserDaemonPanel((SocketGuildUser)button.User);
+								return;
+
+							case "shutdown":
+								await instanceActual.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = false, SoftShutdown = true }, CancellationToken.None);
+								await button.RespondAsync("World Reboot is now Graceful.");
+								await UpdateUserDaemonPanel((SocketGuildUser)button.User);
+								return;
+
+							default:
+								await button.RespondAsync($"Unknown restart type: `{modifier}`", ephemeral: true);
+								return;
+						}
+
+					case "set-watchdog":
+						switch (modifier)
+						{
+							case "launch":
+								await button.RespondAsync("Requesting a launch");
+								await instanceActual.DreamDaemon.Start(CancellationToken.None);
+								await UpdateUserDaemonPanel((SocketGuildUser)button.User);
+								return;
+
+							case "shutdown":
+								await button.RespondAsync("Requesting a shutdown");
+								await instanceActual.DreamDaemon.Shutdown(CancellationToken.None);
+								await UpdateUserDaemonPanel((SocketGuildUser)button.User);
+								return;
+
+							default:
+								await button.RespondAsync($"Unknown Watchdog State: `{modifier}`", ephemeral: true);
+								return;
+						}
+
+					default:
+						await button.RespondAsync($"Unhandled TGS command: `{command}`", ephemeral: true);
+						return;
+				}
+			}
+			await button.RespondAsync("Unhandled button!", ephemeral: true);
 		}
 	}
 }

@@ -57,6 +57,10 @@ namespace Hoard2.Module
 		public virtual void OnLoad(ulong guild) { }
 
 		public virtual void OnUnload(ulong guild) { }
+
+		public virtual Task OnButton(SocketMessageComponent button, string buttonId, ulong guild) => Task.CompletedTask;
+
+		public ButtonBuilder GetButton(string buttonID, ulong guild) => new ButtonBuilder().WithCustomId($"h/{GetModuleName()}/{buttonID}");
 	}
 
 	[AttributeUsage(AttributeTargets.Method)]

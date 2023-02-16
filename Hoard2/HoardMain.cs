@@ -130,6 +130,7 @@ namespace Hoard2
 			DiscordClient.SlashCommandExecuted += CommandHelper.ProcessApplicationCommand;
 			DiscordClient.JoinedGuild += ModuleHelper.JoinedGuild;
 			DiscordClient.LeftGuild += ModuleHelper.LeftGuild;
+			DiscordClient.ButtonExecuted += ModuleHelper.OnButton;
 		}
 
 		public static string GetGuildConfigFolder(ulong guild) => DataDirectory.CreateSubdirectory(guild.ToString()).FullName;

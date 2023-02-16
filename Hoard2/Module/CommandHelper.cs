@@ -356,7 +356,7 @@ namespace Hoard2.Module
 						Name = param.Name!.MTrim(),
 						Description = param.Name!,
 						Type = param.ParameterType.AsOptionType(),
-						IsRequired = param.DefaultValue is null,
+						IsRequired = param.DefaultValue is null or DBNull,
 					});
 				commandBuilder.AddOption(functionOption);
 			}
