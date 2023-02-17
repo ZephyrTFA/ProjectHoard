@@ -473,7 +473,7 @@ namespace Hoard2.Module.Builtin
 				.WithMinValues(0)
 				.WithOptions(availableTMs[..numAllowed].Select(avail =>
 						new SelectMenuOptionBuilder()
-							.WithLabel($"{avail.Title[..Math.Min(avail.Title.Length, 80)]}")
+							.WithLabel($"#{avail.Number} - {avail.Title[..Math.Min(avail.Title.Length, 80)]}")
 							.WithDescription(avail.MergeCommitSha)
 							.WithValue($"{avail.Number}")
 							.WithDefault(existingTMs.Contains(avail.Number)))
