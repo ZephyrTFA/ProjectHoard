@@ -419,7 +419,7 @@ namespace Hoard2.Module.Builtin
 			var menu = new ComponentBuilder();
 			menu.AddRow(new ActionRowBuilder()
 				.WithButton(GetButton("tgs/refresh", storeInfo.GuildId)
-					.WithLabel("Refresh Panel")));
+					.WithLabel("Refresh Panel").WithStyle(ButtonStyle.Secondary)));
 
 			var shutdownRow = new ActionRowBuilder();
 			foreach (var button in await GetLaunchButtons(storeInfo))
