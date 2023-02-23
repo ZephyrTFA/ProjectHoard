@@ -568,8 +568,11 @@ namespace Hoard2.Module.Builtin
 									job = await UpdateJob((SocketGuildUser)menu.User, job, instance);
 								}
 								while (job.StoppedAt is { });
-								if (job.ErrorCode is { })
-									throw new Exception(job.ExceptionDetails);
+								if (job.ExceptionDetails is { })
+								{
+									await menu.ModifyOriginalResponseAsync(props => props.Content = $"Failed to process test merges: `{job.ExceptionDetails}`");
+									return;
+								}
 							}
 							await menu.ModifyOriginalResponseAsync(props => props.Content = "Success");
 						}
