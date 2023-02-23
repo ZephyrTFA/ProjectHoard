@@ -514,7 +514,9 @@ namespace Hoard2.Module.Builtin
 			}
 			catch (RateLimitExceededException)
 			{
-				return builder.WithDisabled(true).WithPlaceholder("You are being rate limited by GitHub consider setting your token!");
+				return builder.WithMaxValues(1).WithMinValues(1).WithOptions(
+					new List<SelectMenuOptionBuilder>(new[] { new SelectMenuOptionBuilder().WithLabel("Disabled").WithValue("Disabled").WithDefault(true) })
+				).WithDisabled(true).WithPlaceholder("You are being rate limited by GitHub consider setting your token!");
 			}
 
 			var numAllowed = Math.Min(availableTMs.Length, 25);
