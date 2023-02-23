@@ -562,15 +562,16 @@ namespace Hoard2.Module.Builtin
 							var resp = await instanceClient.Repository.Update(repoRequest, CancellationToken.None);
 							if (resp.ActiveJob is { } job)
 							{
-								var checkCounts = 20;
+								var checkCount = 0;
 								do
 								{
-									checkCounts--;
-									await Task.Delay(100);
+									checkCount++;
+									await Task.Delay(1000);
+									await menu.ModifyOriginalResponseAsync(props => props.Content = $"Checking (#{checkCount})");
 									job = await UpdateJob((SocketGuildUser)menu.User, job, instance);
 								}
-								while (job.StoppedAt is null && checkCounts > 0);
-								if (job.StoppedAt is null && checkCounts == 0)
+								while (job.StoppedAt is null && checkCount < 10);
+								if (job.StoppedAt is null)
 								{
 									await menu.ModifyOriginalResponseAsync(props => props.Content = "Probably failed to process test merges, job took too long to await!");
 									return;
