@@ -562,12 +562,19 @@ namespace Hoard2.Module.Builtin
 							var resp = await instanceClient.Repository.Update(repoRequest, CancellationToken.None);
 							if (resp.ActiveJob is { } job)
 							{
+								var checkCounts = 20;
 								do
 								{
+									checkCounts--;
 									await Task.Delay(100);
 									job = await UpdateJob((SocketGuildUser)menu.User, job, instance);
 								}
-								while (job.StoppedAt is { });
+								while (job.StoppedAt is null && checkCounts > 0);
+								if (job.StoppedAt is null && checkCounts == 0)
+								{
+									await menu.ModifyOriginalResponseAsync(props => props.Content = "Probably failed to process test merges, job took too long to await!");
+									return;
+								}
 								if (job.ExceptionDetails is { })
 								{
 									await menu.ModifyOriginalResponseAsync(props => props.Content = $"Failed to process test merges: `{job.ExceptionDetails}`");
