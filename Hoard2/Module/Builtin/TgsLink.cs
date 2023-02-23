@@ -334,7 +334,17 @@ namespace Hoard2.Module.Builtin
 			async Task Action()
 			{
 				var repository = await (await GetTgsInstance((SocketGuildUser)command.User, instanceId)).Repository.Read(CancellationToken.None);
-				var openTestMergeMarked = await GetPulls((SocketGuildUser)command.User, repository.RemoteRepositoryOwner!, repository.RemoteRepositoryName!);
+				PullRequest[] openTestMergeMarked;
+				try
+				{
+					openTestMergeMarked = await GetPulls((SocketGuildUser)command.User, repository.RemoteRepositoryOwner!, repository.RemoteRepositoryName!);
+				}
+				catch (RateLimitExceededException)
+				{
+					await command.RespondAsync("You are being rate limited by GitHub. Consider setting a token!", ephemeral: true);
+					return;
+				}
+
 				var tmd = await GetTgsTestMerges((SocketGuildUser)command.User, instanceId);
 
 				var tmdNumbers = tmd.Select(tm => tm.Number);
@@ -496,7 +506,16 @@ namespace Hoard2.Module.Builtin
 			var tgsClient = await GetTgsInstance(user, instanceId);
 			var repo = await tgsClient.Repository.Read(CancellationToken.None);
 			var existingTMs = (repo.RevisionInformation?.ActiveTestMerges ?? new List<TestMerge>()).Select(tm => tm.Number).ToList();
-			var availableTMs = await GetPulls(user, repo.RemoteRepositoryOwner!, repo.RemoteRepositoryName!);
+
+			PullRequest[] availableTMs;
+			try
+			{
+				availableTMs = await GetPulls(user, repo.RemoteRepositoryOwner!, repo.RemoteRepositoryName!);
+			}
+			catch (RateLimitExceededException)
+			{
+				return builder.WithDisabled(true).WithPlaceholder("You are being rate limited by GitHub consider setting your token!");
+			}
 
 			var numAllowed = Math.Min(availableTMs.Length, 25);
 			builder
