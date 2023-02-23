@@ -14,6 +14,7 @@ using Tgstation.Server.Client;
 using Tgstation.Server.Client.Components;
 
 using ProductHeaderValue = System.Net.Http.Headers.ProductHeaderValue;
+using Timer = System.Timers.Timer;
 
 namespace Hoard2.Module.Builtin
 {
@@ -25,6 +26,13 @@ namespace Hoard2.Module.Builtin
 			if (pair is { Item1: false, Item2: false }) return "Nothing";
 			if (pair.Item1) return "Restart";
 			return "Shutdown";
+		}
+
+		internal static ButtonBuilder WithLocked(this ButtonBuilder builder, bool locked)
+		{
+			if (builder.IsDisabled)
+				return builder;
+			return builder.WithDisabled(locked);
 		}
 
 		internal static string ManglePassword(this string password)
@@ -92,6 +100,9 @@ namespace Hoard2.Module.Builtin
 	{
 		public static ServerClientFactory ClientFactory = new ServerClientFactory(new ProductHeaderValue("TgsLink"));
 		List<Guid> _knownUniques = new List<Guid>();
+		Dictionary<ulong, bool> _panelTimerLockout = new Dictionary<ulong, bool>();
+
+		Dictionary<ulong, Timer> _panelTimers = new Dictionary<ulong, Timer>();
 		Dictionary<SocketGuildUser, IServerClient> _tgsCache;
 
 		Dictionary<ulong, Dictionary<string, TokenResponse>> _usernameTokenMap = new Dictionary<ulong, Dictionary<string, TokenResponse>>();
@@ -121,7 +132,7 @@ namespace Hoard2.Module.Builtin
 		{
 			var config = GuildConfig(user.Guild.Id);
 			var usernamePassMap = config.Get<Dictionary<string, string>>("user-pass-map") ?? new Dictionary<string, string>();
-			if (password is null && usernamePassMap.ContainsKey(username)) return new Exception("Login information not saved");
+			if (password is null && !usernamePassMap.ContainsKey(username)) return new Exception("Login information not saved");
 			password ??= usernamePassMap[username].DemanglePassword();
 
 			try
@@ -246,11 +257,11 @@ namespace Hoard2.Module.Builtin
 			return ClientFactory.CreateFromToken(new Uri(serverAddress), _usernameTokenMap[user.Guild.Id][username]);
 		}
 
-		public async Task<PullRequest[]> GetPulls(SocketGuildUser user, long repository, bool onlyMarkedTM = true)
+		public async Task<PullRequest[]> GetPulls(SocketGuildUser user, long repository, bool onlyMarkedTm = true)
 		{
 			var client = GetUserGithubClient(user);
 			var pulls = await client.PullRequest.GetAllForRepository(repository);
-			if (onlyMarkedTM)
+			if (onlyMarkedTm)
 				pulls = pulls.Where(pull => pull.Labels.Any(label => label.Name.ToLower().Contains("test merge candidate"))).ToList();
 			var sorted = pulls
 				.OrderBy(pullInfo => pullInfo.Labels.Any(label => label.Name.ToLower().Contains("test merge candidate")))
@@ -258,14 +269,11 @@ namespace Hoard2.Module.Builtin
 			return sorted.ToArray();
 		}
 
-		public async Task<PullRequest[]> GetPulls(SocketUser user, string owner, string repository, bool onlyMarkedTM = true)
+		public async Task<PullRequest[]> GetPulls(SocketGuildUser user, string owner, string repository, bool onlyMarkedTM = true)
 		{
 			var client = GetUserGithubClient(user);
-			var pulls = await client.PullRequest.GetAllForRepository(owner, repository);
-			var sorted = pulls
-				.OrderBy(pullInfo => pullInfo.Labels.Any(label => label.Name.ToLower().Contains("test merge candidate")))
-				.ThenBy(pullInfo => pullInfo.Id);
-			return sorted.ToArray();
+			var repoId = (await client.Repository.Get(owner, repository)).Id;
+			return await GetPulls(user, repoId, onlyMarkedTM);
 		}
 
 		public async Task<InstanceResponse[]> GetTgsInstances(SocketGuildUser user)
@@ -326,7 +334,7 @@ namespace Hoard2.Module.Builtin
 			async Task Action()
 			{
 				var repository = await (await GetTgsInstance((SocketGuildUser)command.User, instanceId)).Repository.Read(CancellationToken.None);
-				var openTestMergeMarked = await GetPulls(command.User, repository.RemoteRepositoryOwner!, repository.RemoteRepositoryName!);
+				var openTestMergeMarked = await GetPulls((SocketGuildUser)command.User, repository.RemoteRepositoryOwner!, repository.RemoteRepositoryName!);
 				var tmd = await GetTgsTestMerges((SocketGuildUser)command.User, instanceId);
 
 				var tmdNumbers = tmd.Select(tm => tm.Number);
@@ -376,16 +384,17 @@ namespace Hoard2.Module.Builtin
 				MessageId = original.Id,
 			};
 			_userPanels[command.User.Id] = storeInfo;
+			_panelTimerLockout[command.User.Id] = false;
 			await UpdateUserDaemonPanel(storeInfo);
 		}
 
-		async Task UpdateUserDaemonPanel(PanelStore storeInfo)
+		async Task UpdateUserDaemonPanel(PanelStore storeInfo, bool @lock = false)
 		{
 			var channelInstance = await HoardMain.DiscordClient.GetChannelAsync(storeInfo.ChannelId) as IMessageChannel;
 			await channelInstance!.ModifyMessageAsync(storeInfo.MessageId, props =>
 			{
 				props.Content = "";
-				(props.Embed, props.Components) = DaemonPanel(storeInfo).GetAwaiter().GetResult();
+				(props.Embed, props.Components) = DaemonPanel(storeInfo, @lock).GetAwaiter().GetResult();
 			});
 		}
 
@@ -399,16 +408,19 @@ namespace Hoard2.Module.Builtin
 		public async Task UpdateTestMergePanel(SocketGuildUser user, long instance, ulong guild, IUserMessage message, bool @lock = false)
 		{
 			var menu = await GetTestMergeMenu(user, instance, guild);
+			var cancelButton = GetButton($"tgs/test-merge-menu/{instance}/cancel", guild).WithStyle(ButtonStyle.Danger).WithLabel("Cancel").WithDisabled(@lock);
 			var instanceMeta = await GetTgsInstance(user, instance);
 			await message.ModifyAsync(props =>
 			{
 				props.Content = $"Test Merge Panel - {instanceMeta.Metadata.Name}";
-				props.Components = new ComponentBuilder().WithSelectMenu(menu.WithDisabled(@lock)).Build();
+				props.Components = new ComponentBuilder().WithSelectMenu(menu.WithDisabled(@lock)).WithButton(cancelButton).Build();
 			});
 		}
-
-		async Task<(Embed, MessageComponent)> DaemonPanel(PanelStore storeInfo)
+		async Task<(Embed, MessageComponent)> DaemonPanel(PanelStore storeInfo, bool @lock = false)
 		{
+			if (_panelTimerLockout.TryGetValue(storeInfo.User.Id, out var timerLocked) && timerLocked)
+				@lock = true;
+
 			var instance = await GetTgsInstance(storeInfo.User, storeInfo.InstanceId);
 			var daemon = await instance.DreamDaemon.Read(CancellationToken.None);
 
@@ -419,11 +431,13 @@ namespace Hoard2.Module.Builtin
 			var menu = new ComponentBuilder();
 			menu.AddRow(new ActionRowBuilder()
 				.WithButton(GetButton("tgs/refresh", storeInfo.GuildId)
-					.WithLabel("Refresh Panel").WithStyle(ButtonStyle.Secondary)));
+					.WithLabel("Refresh Panel").WithStyle(ButtonStyle.Secondary).WithLocked(@lock))
+				.WithButton(GetButton("tgs/cancel", storeInfo.GuildId)
+					.WithLabel("Cancel").WithStyle(ButtonStyle.Danger).WithLocked(@lock)));
 
 			var shutdownRow = new ActionRowBuilder();
 			foreach (var button in await GetLaunchButtons(storeInfo))
-				shutdownRow.WithButton(button);
+				shutdownRow.WithButton(button.WithLocked(@lock));
 			menu.AddRow(shutdownRow);
 
 			if (isOnline)
@@ -431,10 +445,27 @@ namespace Hoard2.Module.Builtin
 				embed.AddField("Restart Type", (daemon.SoftRestart ?? false, daemon.SoftShutdown ?? false).RestartType());
 				var restartTypeRow = new ActionRowBuilder();
 				foreach (var restartTypeButton in await GetRestartTypeButtons(storeInfo))
-					restartTypeRow.WithButton(restartTypeButton);
+					restartTypeRow.WithButton(restartTypeButton.WithLocked(@lock));
 				menu.AddRow(restartTypeRow);
 			}
 
+			if (_panelTimers.ContainsKey(storeInfo.User.Id))
+			{
+				var timer = _panelTimers[storeInfo.User.Id];
+				timer.Stop();
+				_panelTimers.Remove(storeInfo.User.Id);
+				timer.Dispose();
+			}
+
+			var timeoutTimer = _panelTimers[storeInfo.User.Id] = new Timer(10000);
+			timeoutTimer.Elapsed += (obj, args) =>
+			{
+				timeoutTimer.Stop();
+				_panelTimers.Remove(storeInfo.User.Id);
+				_panelTimerLockout[storeInfo.User.Id] = true;
+				_ = UpdateUserDaemonPanel(storeInfo);
+			};
+			timeoutTimer.Start();
 			return (embed.Build(), menu.Build());
 		}
 
@@ -565,43 +596,69 @@ namespace Hoard2.Module.Builtin
 
 		public override async Task OnButton(SocketMessageComponent button, string buttonId)
 		{
+			async Task<bool> AssetStoreInfo(PanelStore storeInfo)
+			{
+				if (storeInfo.InstanceId == -1)
+				{
+					await button.RespondAsync("Failed to get panel information?", ephemeral: true);
+					return false;
+				}
+				if (storeInfo.User.Id != button.User.Id)
+				{
+					await button.RespondAsync("This isn't your panel!", ephemeral: true);
+					return false;
+				}
+
+				return true;
+			}
+
 			if (buttonId.StartsWith("tgs/"))
 			{
 				var split = buttonId.Split("/");
 				var command = split[1];
-				var instance = Int64.Parse(split[2]);
+				long? instance = split.Length >= 3 ? Int64.Parse(split[2]) : null;
 				var modifier = split.Length >= 4 ? split[3] : null;
-				if (!_userPanels.TryGetValue(button.User.Id, out var storeInfo))
-				{
-					await button.RespondAsync("Failed to get panel information?", ephemeral: true);
-					return;
-				}
 
-				var instanceActual = await GetTgsInstance((SocketGuildUser)button.User, instance);
+				var storeInfo = new PanelStore { InstanceId = -1 };
+				if (_userPanels.ContainsKey(button.User.Id))
+					storeInfo = _userPanels[button.User.Id];
+
+				var instanceActual = instance is { } ? await GetTgsInstance((SocketGuildUser)button.User, instance.Value) : null;
 				switch (command)
 				{
 					case "refresh":
+						if (!await AssetStoreInfo(storeInfo))
+							return;
 						await button.RespondAsync("Updating your panel...", ephemeral: true);
 						await UpdateUserDaemonPanel(storeInfo);
 						return;
 
+					case "cancel":
+						if (!await AssetStoreInfo(storeInfo))
+							return;
+						await button.RespondAsync("Canceling panel", ephemeral: true);
+						await UpdateUserDaemonPanel(storeInfo, true);
+						return;
+
 					case "restart-type":
+						if (!await AssetStoreInfo(storeInfo))
+							return;
 						switch (modifier)
 						{
 							case "nothing":
-								await instanceActual.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = false, SoftShutdown = false }, CancellationToken.None);
+								await instanceActual!.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = false, SoftShutdown = false }, CancellationToken.None);
 								await button.RespondAsync("World Reboot is now normal.");
 								await UpdateUserDaemonPanel(storeInfo);
 								return;
 
 							case "restart":
-								await instanceActual.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = true, SoftShutdown = false }, CancellationToken.None);
+								await instanceActual!.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = true, SoftShutdown = false }, CancellationToken.None);
 								await button.RespondAsync("World Reboot will now restart.");
 								await UpdateUserDaemonPanel(storeInfo);
 								return;
 
 							case "shutdown":
-								await instanceActual.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = false, SoftShutdown = true }, CancellationToken.None);
+								await instanceActual!.DreamDaemon.Update(new DreamDaemonRequest { SoftRestart = false, SoftShutdown = true }, CancellationToken.None);
 								await button.RespondAsync("World Reboot is now Graceful.");
 								await UpdateUserDaemonPanel(storeInfo);
 								return;
@@ -612,17 +669,19 @@ namespace Hoard2.Module.Builtin
 						}
 
 					case "set-watchdog":
+						if (!await AssetStoreInfo(storeInfo))
+							return;
 						switch (modifier)
 						{
 							case "launch":
 								await button.RespondAsync("Requesting a launch");
-								await instanceActual.DreamDaemon.Start(CancellationToken.None);
+								await instanceActual!.DreamDaemon.Start(CancellationToken.None);
 								await UpdateUserDaemonPanel(storeInfo);
 								return;
 
 							case "shutdown":
 								await button.RespondAsync("Requesting a shutdown");
-								await instanceActual.DreamDaemon.Shutdown(CancellationToken.None);
+								await instanceActual!.DreamDaemon.Shutdown(CancellationToken.None);
 								await UpdateUserDaemonPanel(storeInfo);
 								return;
 
@@ -630,6 +689,20 @@ namespace Hoard2.Module.Builtin
 								await button.RespondAsync($"Unknown Watchdog State: `{modifier}`", ephemeral: true);
 								return;
 						}
+
+					case "test-merge-menu":
+						switch (modifier)
+						{
+							case "cancel":
+								await UpdateTestMergePanel((SocketGuildUser)button.User, instance!.Value, button.GuildId!.Value, button.Message, true);
+								await button.RespondAsync("Canceled Panel", ephemeral: true);
+								return;
+
+							default:
+								await button.RespondAsync($"Unknown modifier: `{modifier}`", ephemeral: true);
+								return;
+						}
+
 
 					default:
 						await button.RespondAsync($"Unhandled TGS command: `{command}`", ephemeral: true);
