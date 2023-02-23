@@ -417,7 +417,16 @@ namespace Hoard2.Module.Builtin
 
 		public async Task UpdateTestMergePanel(SocketGuildUser user, long instance, ulong guild, IUserMessage message, bool @lock = false)
 		{
-			var menu = await GetTestMergeMenu(user, instance, guild);
+			SelectMenuBuilder menu;
+			try
+			{
+				menu = await GetTestMergeMenu(user, instance, guild);
+			}
+			catch (RateLimitExceededException)
+			{
+				await message.ModifyAsync(props => props.Content = "You are being rate limited by GitHub, consider setting your token!");
+				return;
+			}
 			var cancelButton = GetButton($"tgs/test-merge-menu/{instance}/cancel", guild).WithStyle(ButtonStyle.Danger).WithLabel("Cancel").WithDisabled(@lock);
 			var instanceMeta = await GetTgsInstance(user, instance);
 			await message.ModifyAsync(props =>
@@ -507,18 +516,7 @@ namespace Hoard2.Module.Builtin
 			var repo = await tgsClient.Repository.Read(CancellationToken.None);
 			var existingTMs = (repo.RevisionInformation?.ActiveTestMerges ?? new List<TestMerge>()).Select(tm => tm.Number).ToList();
 
-			PullRequest[] availableTMs;
-			try
-			{
-				availableTMs = await GetPulls(user, repo.RemoteRepositoryOwner!, repo.RemoteRepositoryName!);
-			}
-			catch (RateLimitExceededException)
-			{
-				return builder.WithMaxValues(1).WithMinValues(1).WithOptions(
-					new List<SelectMenuOptionBuilder>(new[] { new SelectMenuOptionBuilder().WithLabel("Disabled").WithValue("Disabled").WithDefault(true) })
-				).WithDisabled(true).WithPlaceholder("You are being rate limited by GitHub consider setting your token!");
-			}
-
+			var availableTMs = await GetPulls(user, repo.RemoteRepositoryOwner!, repo.RemoteRepositoryName!);
 			var numAllowed = Math.Min(availableTMs.Length, 25);
 			builder
 				.WithMaxValues(numAllowed)
