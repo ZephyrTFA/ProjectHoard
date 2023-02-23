@@ -28,6 +28,7 @@ namespace Hoard2
 			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
 			{
 				GatewayIntents = GatewayIntents.All,
+				DefaultRetryMode = RetryMode.RetryRatelimit,
 				MessageCacheSize = 200,
 				AlwaysDownloadUsers = true,
 				LogLevel = LogSeverity.Verbose,
