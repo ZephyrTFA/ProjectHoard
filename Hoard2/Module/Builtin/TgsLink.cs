@@ -408,6 +408,43 @@ namespace Hoard2.Module.Builtin
 			});
 		}
 
+		[ModuleCommand("Reset tracked state of the repository")]
+		public async Task ResetRepo(SocketSlashCommand command, long instanceId = 1)
+		{
+			await command.RespondAsync("Working...");
+			var tgsClient = await GetTgsInstance((SocketGuildUser)command.User, instanceId);
+			var repo = await tgsClient.Repository.Read(CancellationToken.None);
+			var resp = await tgsClient.Repository.Update(new RepositoryUpdateRequest
+			{
+				NewTestMerges = new List<TestMergeParameters>(),
+				Reference = repo.Reference,
+				UpdateFromOrigin = true,
+			}, CancellationToken.None);
+			if (resp.ActiveJob is { } job)
+			{
+				var checkCount = 0;
+				do
+				{
+					checkCount++;
+					await Task.Delay(1000);
+					await command.ModifyOriginalResponseAsync(props => props.Content = $"Checking (#{checkCount})");
+					job = await UpdateJob((SocketGuildUser)command.User, job, instanceId);
+				}
+				while (job.StoppedAt is null && checkCount < 10);
+				if (job.StoppedAt is null)
+				{
+					await command.ModifyOriginalResponseAsync(props => props.Content = "Probably failed to process, job took too long to await!");
+					return;
+				}
+				if (job.ExceptionDetails is { })
+				{
+					await command.ModifyOriginalResponseAsync(props => props.Content = $"Failed to process: `{job.ExceptionDetails}`");
+					return;
+				}
+			}
+			await command.ModifyOriginalResponseAsync(props => props.Content = "Success");
+		}
+
 		[ModuleCommand("View the test merge panel")]
 		public async Task TestMergePanel(SocketSlashCommand command, long instanceId = 1)
 		{
@@ -427,6 +464,12 @@ namespace Hoard2.Module.Builtin
 				await message.ModifyAsync(props => props.Content = "You are being rate limited by GitHub, consider setting your token!");
 				return;
 			}
+			catch (EndOfStreamException)
+			{
+				await message.ModifyAsync(props => props.Content = "There are no available/marked pulls.");
+				return;
+			}
+
 			var cancelButton = GetButton($"tgs/test-merge-menu/{instance}/cancel", guild).WithStyle(ButtonStyle.Danger).WithLabel("Cancel").WithDisabled(@lock);
 			var instanceMeta = await GetTgsInstance(user, instance);
 			await message.ModifyAsync(props =>
@@ -518,6 +561,8 @@ namespace Hoard2.Module.Builtin
 
 			var availableTMs = await GetPulls(user, repo.RemoteRepositoryOwner!, repo.RemoteRepositoryName!);
 			var numAllowed = Math.Min(availableTMs.Length, 25);
+			if (numAllowed == 0)
+				throw new EndOfStreamException();
 			builder
 				.WithMaxValues(numAllowed)
 				.WithMinValues(0)
