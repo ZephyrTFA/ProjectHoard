@@ -302,8 +302,10 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("Check the active test merges on the given instance")]
-		public async Task GetTestMerges(SocketSlashCommand command, long instanceId = 1)
+		public async Task GetTestMerges(SocketSlashCommand command, long instanceId = -1)
 		{
+			instanceId = GetOrDefaultInstanceId(instanceId, command.GuildId!.Value);
+
 			async Task FetchTMs()
 			{
 				var tms = await GetTgsTestMerges((SocketGuildUser)command.User, instanceId);
@@ -329,8 +331,10 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("List the possible test merges")]
-		public async Task ListAvailableTestMerges(SocketSlashCommand command, long instanceId = 1)
+		public async Task ListAvailableTestMerges(SocketSlashCommand command, long instanceId = -1)
 		{
+			instanceId = GetOrDefaultInstanceId(instanceId, command.GuildId!.Value);
+
 			async Task Action()
 			{
 				var repository = await (await GetTgsInstance((SocketGuildUser)command.User, instanceId)).Repository.Read(CancellationToken.None);
@@ -380,8 +384,10 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("Check and update DreamDaemon")]
-		public async Task Daemon(SocketSlashCommand command, long instanceId = 1)
+		public async Task Daemon(SocketSlashCommand command, long instanceId = -1)
 		{
+			instanceId = GetOrDefaultInstanceId(instanceId, command.GuildId!.Value);
+
 			await command.RespondAsync("Fetching...");
 			var original = await command.GetOriginalResponseAsync();
 			var storeInfo = new PanelStore
@@ -409,8 +415,10 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("Reset tracked state of the repository")]
-		public async Task ResetRepo(SocketSlashCommand command, long instanceId = 1)
+		public async Task ResetRepo(SocketSlashCommand command, long instanceId = -1)
 		{
+			instanceId = GetOrDefaultInstanceId(instanceId, command.GuildId!.Value);
+
 			await command.RespondAsync("Working...");
 			var tgsClient = await GetTgsInstance((SocketGuildUser)command.User, instanceId);
 			var repo = await tgsClient.Repository.Read(CancellationToken.None);
@@ -446,8 +454,10 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("View the test merge panel")]
-		public async Task TestMergePanel(SocketSlashCommand command, long instanceId = 1)
+		public async Task TestMergePanel(SocketSlashCommand command, long instanceId = -1)
 		{
+			instanceId = GetOrDefaultInstanceId(instanceId, command.GuildId!.Value);
+
 			await command.RespondAsync("Fetching...");
 			await UpdateTestMergePanel((SocketGuildUser)command.User, instanceId, command.GuildId!.Value, await command.GetOriginalResponseAsync());
 		}
@@ -787,12 +797,28 @@ namespace Hoard2.Module.Builtin
 			await button.RespondAsync("Unhandled button!", ephemeral: true);
 		}
 
-		[ModuleCommand("trigger a deployment")]
-		public async Task StartDeployment(SocketSlashCommand command, long instanceId = 1)
+		long GetOrDefaultInstanceId(long instanceId, ulong guild)
 		{
+			if (instanceId != -1) return instanceId;
+			if (!GuildConfig(guild).TryGet<long>("default-instance-id", out var def)) throw new Exception("Default instance ID is not set!");
+			return def;
+		}
+
+		[ModuleCommand("trigger a deployment")]
+		public async Task StartDeployment(SocketSlashCommand command, long instanceId = -1)
+		{
+			instanceId = GetOrDefaultInstanceId(instanceId, command.GuildId!.Value);
+
 			var instance = await GetTgsInstance((SocketGuildUser)command.User, instanceId);
 			await instance.DreamMaker.Compile(CancellationToken.None);
 			await command.RespondAsync("Triggered a deployment, probably");
+		}
+
+		[ModuleCommand("Set the default instance", GuildPermission.Administrator)]
+		public async Task SetDefaultInstance(SocketSlashCommand command, long instance)
+		{
+			GuildConfig(command.GuildId!.Value).Set("default-instance-id", instance);
+			await command.RespondAsync("Set the default instance ID!");
 		}
 	}
 }
