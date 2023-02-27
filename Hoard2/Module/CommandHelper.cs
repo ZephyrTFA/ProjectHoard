@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using System.Runtime.Serialization;
 using System.Text;
 
 using Discord;
@@ -8,16 +7,14 @@ using Discord.WebSocket;
 
 namespace Hoard2.Module
 {
-	struct ModuleFunctionMap
+	readonly struct ModuleFunctionMap
 	{
 		public ModuleFunctionMap() { }
 
 		internal readonly List<CommandMap> SubCommands = new List<CommandMap>();
-		internal bool IsPartial = false;
 
 		internal void LoadFrom(List<Dictionary<string, string>> info)
 		{
-			IsPartial = true;
 			SubCommands.Clear();
 			foreach (var value in info)
 			{
@@ -133,43 +130,9 @@ namespace Hoard2.Module
 
 	public static class CommandHelper
 	{
-		internal static readonly Dictionary<Type, ModuleFunctionMap> ModuleCommandMap = new Dictionary<Type, ModuleFunctionMap>();
+		internal static readonly Dictionary<ulong, Dictionary<Type, ModuleFunctionMap>> ModuleCommandMap = new Dictionary<ulong, Dictionary<Type, ModuleFunctionMap>>();
 		internal static readonly Dictionary<ulong, List<ModuleBase>> GuildCommandMap = new Dictionary<ulong, List<ModuleBase>>();
 		internal static readonly Dictionary<string, ModuleBase> ModuleNameMap = new Dictionary<string, ModuleBase>();
-
-		internal static FileInfo MapInfoStore = null!;
-
-		public static async Task SaveMapInformation()
-		{
-			var data = new Dictionary<string, List<Dictionary<string, string>>>();
-			foreach (var (type, mfMap) in ModuleCommandMap)
-			{
-				var mMap = new List<Dictionary<string, string>>();
-				mfMap.SaveTo(mMap);
-				data[type.AssemblyQualifiedName!] = mMap;
-			}
-			var serializer = new DataContractSerializer(typeof(Dictionary<string, List<Dictionary<string, string>>>));
-			var memory = new MemoryStream();
-			serializer.WriteObject(memory, data);
-			memory.Seek(0, SeekOrigin.Begin);
-			if (MapInfoStore.Exists) MapInfoStore.Delete();
-			await using var fStream = MapInfoStore.Create();
-			memory.WriteTo(fStream);
-		}
-
-		public static async Task LoadMapInformation()
-		{
-			if (!MapInfoStore.Exists) return;
-			await using var fStream = MapInfoStore.OpenRead();
-			var serializer = new DataContractSerializer(typeof(Dictionary<string, List<Dictionary<string, string>>>));
-			if (serializer.ReadObject(fStream) is not Dictionary<string, List<Dictionary<string, string>>> data) throw new IOException();
-			foreach (var (type, mfMap) in data)
-			{
-				var mMap = new ModuleFunctionMap();
-				mMap.LoadFrom(mfMap);
-				ModuleCommandMap[Type.GetType(type) ?? throw new TypeUnloadedException()] = mMap;
-			}
-		}
 
 		public static async Task ProcessApplicationCommand(SocketSlashCommand command)
 		{
@@ -185,7 +148,7 @@ namespace Hoard2.Module
 			}
 
 			var subCommandName = commandData.Name;
-			var moduleFunctionMap = ModuleCommandMap[commandOwner.GetType()];
+			var moduleFunctionMap = ModuleCommandMap[command.GuildId!.Value][commandOwner.GetType()];
 			if (!moduleFunctionMap.SubCommands.Any(subCommand => subCommand.Name.Equals(subCommandName)))
 				return;
 			var subCommandMap = moduleFunctionMap.SubCommands.First(subCommand => subCommand.Name.Equals(subCommandName));
@@ -262,8 +225,7 @@ namespace Hoard2.Module
 				await existing.DeleteAsync();
 			GuildCommandMap.Remove(guildId);
 			ModuleNameMap.Remove(module.GetModuleName());
-			ModuleCommandMap.Remove(module.GetType());
-			await SaveMapInformation();
+			ModuleCommandMap[guildId].Remove(module.GetType());
 		}
 
 		public static async Task WipeAllGuildCommands(SocketSlashCommand? originator = null)
@@ -282,7 +244,6 @@ namespace Hoard2.Module
 			GuildCommandMap.Clear();
 			ModuleNameMap.Clear();
 			ModuleCommandMap.Clear();
-			await SaveMapInformation();
 		}
 
 		public static async Task RefreshAllGuildCommands()
@@ -295,13 +256,15 @@ namespace Hoard2.Module
 			}
 		}
 
-		public static async Task<Optional<SlashCommandBuilder>> RefreshModuleCommands(ulong guild, ModuleBase module)
+		public static Task<Optional<SlashCommandBuilder>> RefreshModuleCommands(ulong guild, ModuleBase module)
 		{
 			HoardMain.Logger.LogInformation("Refreshing module commands for {}", module);
 			var moduleMap = new ModuleFunctionMap();
 			var possibleFunctions = module.GetType().GetMethods();
 			var filteredFunctions = possibleFunctions.Where(func => func.GetCustomAttribute<ModuleCommandAttribute>() is { }).Select(func => (func.GetCustomAttribute<ModuleCommandAttribute>()!, func)).ToList();
-			ModuleFunctionMap? knownCommand = ModuleCommandMap.TryGetValue(module.GetType(), out var knownMap) ? knownMap : null;
+			if (!ModuleCommandMap.ContainsKey(guild))
+				ModuleCommandMap[guild] = new Dictionary<Type, ModuleFunctionMap>();
+			ModuleFunctionMap? knownCommand = ModuleCommandMap[guild].TryGetValue(module.GetType(), out var knownMap) ? knownMap : null;
 			var knownSubCommands = knownCommand?.SubCommands ?? new List<CommandMap>();
 			var refreshed = new List<CommandMap>();
 			var refreshNeeded = !knownCommand.HasValue;
@@ -342,7 +305,7 @@ namespace Hoard2.Module
 			if (!refreshNeeded)
 			{
 				HoardMain.Logger.LogInformation("Refresh is not needed.");
-				return Optional<SlashCommandBuilder>.Unspecified;
+				return Task.FromResult(Optional<SlashCommandBuilder>.Unspecified);
 			}
 
 			var commandBuilder = new SlashCommandBuilder { Name = module.GetModuleName(), Description = "Module command" };
@@ -361,10 +324,11 @@ namespace Hoard2.Module
 				commandBuilder.AddOption(functionOption);
 			}
 
-			ModuleCommandMap[module.GetType()] = moduleMap;
-			await SaveMapInformation();
+			if (!ModuleCommandMap.ContainsKey(guild))
+				ModuleCommandMap[guild] = new Dictionary<Type, ModuleFunctionMap>();
+			ModuleCommandMap[guild][module.GetType()] = moduleMap;
 			HoardMain.Logger.LogInformation("Refreshing complete. Update required.");
-			return new Optional<SlashCommandBuilder>(commandBuilder);
+			return Task.FromResult(new Optional<SlashCommandBuilder>(commandBuilder));
 		}
 
 		public static async Task RunLongCommandTask(Func<Task> action, RestInteractionMessage responseMessage)

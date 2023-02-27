@@ -22,7 +22,7 @@ namespace Hoard2
 			HoardHost.StopAsync(CancellationToken.None);
 		}
 
-		public static async Task Initialize(ILogger<Worker> log, CancellationToken workerToken)
+		public static Task Initialize(ILogger<Worker> log, CancellationToken workerToken)
 		{
 			HoardToken = workerToken;
 			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
@@ -38,8 +38,7 @@ namespace Hoard2
 			DataDirectory = new DirectoryInfo($"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)}/ProjectHoard");
 			if (!DataDirectory.Exists)
 				DataDirectory.Create();
-			CommandHelper.MapInfoStore = new FileInfo(Path.Join(DataDirectory.FullName, "command-store.xml"));
-			await CommandHelper.LoadMapInformation();
+			return Task.CompletedTask;
 		}
 
 		static Task HandleDiscordLog(LogMessage message)
