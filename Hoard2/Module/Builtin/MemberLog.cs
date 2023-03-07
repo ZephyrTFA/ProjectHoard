@@ -58,10 +58,10 @@ namespace Hoard2.Module.Builtin
 			var banChannel = await GetChannel(command.GuildId!.Value, ChannelBan);
 			var unbanChannel = await GetChannel(command.GuildId!.Value, ChannelUnban);
 
-			var joinText = joinChannel is { } ? $"<#{joinChannel}>" : "Not Set";
-			var leaveText = leaveChannel is { } ? $"<#{leaveChannel}>" : "Not Set";
-			var banText = banChannel is { } ? $"<#{banChannel}>" : "Not Set";
-			var unbanText = unbanChannel is { } ? $"<#{unbanChannel}>" : "Not Set";
+			var joinText = joinChannel is { } ? $"<#{joinChannel.Id}>" : "Not Set";
+			var leaveText = leaveChannel is { } ? $"<#{leaveChannel.Id}>" : "Not Set";
+			var banText = banChannel is { } ? $"<#{banChannel.Id}>" : "Not Set";
+			var unbanText = unbanChannel is { } ? $"<#{unbanChannel.Id}>" : "Not Set";
 
 			await command.RespondAsync("Channel Map", embed:
 				new EmbedBuilder()
