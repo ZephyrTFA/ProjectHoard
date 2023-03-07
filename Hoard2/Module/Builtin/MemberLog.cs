@@ -45,6 +45,8 @@ namespace Hoard2.Module.Builtin
 		{
 			if (!GuildConfig(guild).TryGet<ulong>(key, out var channelId))
 				return null;
+			if (channelId == 0)
+				return null;
 			return await HoardMain.DiscordClient.GetChannelAsync(channelId) as IMessageChannel;
 		}
 
