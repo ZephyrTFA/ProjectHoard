@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 
 namespace Hoard2.Module.Builtin
@@ -66,8 +67,44 @@ namespace Hoard2.Module.Builtin
 				.WithColor(Color.DarkRed)
 				.WithTitle($"{user.Username} was banned.")
 				.WithDescription($"<@!{user.Id}>")
-				.WithFields(new EmbedFieldBuilder().WithName("Ban Information").WithValue($"```\nModerator: '<@!{ban.User.Id}>'\nReason: '{ban.Reason}'\n```"))
-				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{user.Id}"))
+				.WithFields(
+					new EmbedFieldBuilder().WithName("Moderator").WithValue($"<@!{user.Id}>"),
+					new EmbedFieldBuilder().WithName("UID").WithValue($"{user.Id}"),
+					new EmbedFieldBuilder().WithName("Ban Reason").WithValue(String.IsNullOrWhiteSpace(ban.Reason) ? "No ban reason supplied" : ban.Reason))
+				.WithImageUrl(user.GetAvatarUrl())
+				.Build());
+		}
+
+		public override async Task UserUnbanned(SocketGuild guild, SocketUser user)
+		{
+			if (GuildConfig(guild.Id).Get<ulong?>("log-channel") is not { } channelId)
+				return;
+			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);
+			if (channel is not IMessageChannel messageChannel)
+			{
+				HoardMain.Logger.LogWarning("Could not fetch channel!");
+				return;
+			}
+
+			var auditLogEntries = await guild.GetAuditLogsAsync(20, actionType: ActionType.Unban).FlattenAsync();
+			var entry = auditLogEntries.FirstOrDefault(logEntry =>
+			{
+				var data = (UnbanAuditLogData)logEntry.Data;
+				if (data.Target.Id == user.Id)
+					return true;
+				return false;
+			});
+
+			var moderator = entry is { } ? $"<@!{entry.User.Id}>" : "Unknown Moderator";
+			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
+				.WithAuthor(user)
+				.WithCurrentTimestamp()
+				.WithColor(Color.Purple)
+				.WithTitle($"{user.Username} was unbanned.")
+				.WithDescription($"<@!{user.Id}>")
+				.WithFields(
+					new EmbedFieldBuilder().WithName("Moderator").WithValue(moderator),
+					new EmbedFieldBuilder().WithName("UID").WithValue($"{user.Id}"))
 				.WithImageUrl(user.GetAvatarUrl())
 				.Build());
 		}
