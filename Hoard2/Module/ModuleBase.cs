@@ -44,6 +44,10 @@ namespace Hoard2.Module
 
 		public virtual Task DiscordClientOnMessageReceived(IMessage message) => Task.CompletedTask;
 
+		public virtual Task UserBanned(SocketGuild guild, SocketUser user) => Task.CompletedTask;
+
+		public virtual Task UserUnbanned(SocketGuild guild, SocketUser user) => Task.CompletedTask;
+
 		public virtual async Task ModuleCommand(SocketSlashCommand command) => await command.RespondAsync("Module did not implement base command!", ephemeral: true);
 
 		public virtual bool TryLoad(ulong guild, out string reason)

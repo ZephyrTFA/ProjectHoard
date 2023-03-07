@@ -132,6 +132,8 @@ namespace Hoard2
 			DiscordClient.LeftGuild += ModuleHelper.LeftGuild;
 			DiscordClient.ButtonExecuted += ModuleHelper.OnButton;
 			DiscordClient.SelectMenuExecuted += ModuleHelper.OnMenu;
+			DiscordClient.UserBanned += ModuleHelper.UserBanned;
+			DiscordClient.UserUnbanned += ModuleHelper.UserUnbanned;
 		}
 
 		public static string GetGuildConfigFolder(ulong guild) => DataDirectory.CreateSubdirectory(guild.ToString()).FullName;

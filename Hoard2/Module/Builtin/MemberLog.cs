@@ -48,9 +48,36 @@ namespace Hoard2.Module.Builtin
 				.Build());
 		}
 
+		public override async Task UserBanned(SocketGuild guild, SocketUser user)
+		{
+			if (GuildConfig(guild.Id).Get<ulong?>("log-channel") is not { } channelId)
+				return;
+			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);
+			if (channel is not IMessageChannel messageChannel)
+			{
+				HoardMain.Logger.LogWarning("Could not fetch channel!");
+				return;
+			}
+
+			var ban = await guild.GetBanAsync(user);
+			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
+				.WithAuthor(user)
+				.WithCurrentTimestamp()
+				.WithColor(Color.DarkRed)
+				.WithTitle($"{user.Username} was banned.")
+				.WithDescription($"<@!{user.Id}>")
+				.WithFields(new EmbedFieldBuilder().WithName("Ban Information").WithValue($"```\nModerator: '<@!{ban.User.Id}>'\nReason: '{ban.Reason}'\n```"))
+				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{user.Id}"))
+				.WithImageUrl(user.GetAvatarUrl())
+				.Build());
+		}
+
 		public override async Task DiscordClientOnUserLeft(SocketGuild socketGuild, SocketUser socketUser)
 		{
 			if (GuildConfig(socketGuild.Id).Get<ulong?>("log-channel") is not { } channelId)
+				return;
+
+			if (await socketGuild.GetBanAsync(socketUser) is not null)
 				return;
 
 			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);

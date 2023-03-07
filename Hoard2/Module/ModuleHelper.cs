@@ -333,5 +333,22 @@ namespace Hoard2.Module
 				await menu.Channel.SendMessageAsync($"Menu Interaction errored: {e.Message}");
 			}
 		}
+
+		internal static async Task UserBanned(SocketUser user, SocketGuild guild)
+		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
+			if (user.IsBot) return;
+			if (!GuildModules.TryGetValue(guild.Id, out var modules)) return;
+			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
+				await module.UserBanned(guild, user);
+		}
+		internal static async Task UserUnbanned(SocketUser user, SocketGuild guild)
+		{
+			if (HoardMain.HoardToken.IsCancellationRequested) return;
+			if (user.IsBot) return;
+			if (!GuildModules.TryGetValue(guild.Id, out var modules)) return;
+			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
+				await module.UserUnbanned(guild, user);
+		}
 	}
 }
