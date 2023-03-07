@@ -60,6 +60,15 @@ namespace Hoard2.Module.Builtin
 				return;
 			}
 
+			var auditLogEntries = await guild.GetAuditLogsAsync(20, actionType: ActionType.Unban).FlattenAsync();
+			var entry = auditLogEntries.FirstOrDefault(logEntry =>
+			{
+				var data = (UnbanAuditLogData)logEntry.Data;
+				if (data.Target.Id == user.Id)
+					return true;
+				return false;
+			});
+			var moderator = entry is { } ? $"<@!{entry.User.Id}>" : "Unknown Moderator";
 			var ban = await guild.GetBanAsync(user);
 			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
 				.WithAuthor(user)
@@ -68,7 +77,7 @@ namespace Hoard2.Module.Builtin
 				.WithTitle($"{user.Username} was banned.")
 				.WithDescription($"<@!{user.Id}>")
 				.WithFields(
-					new EmbedFieldBuilder().WithName("Moderator").WithValue($"<@!{user.Id}>"),
+					new EmbedFieldBuilder().WithName("Moderator").WithValue(moderator),
 					new EmbedFieldBuilder().WithName("UID").WithValue($"{user.Id}"),
 					new EmbedFieldBuilder().WithName("Ban Reason").WithValue(String.IsNullOrWhiteSpace(ban.Reason) ? "No ban reason supplied" : ban.Reason))
 				.WithImageUrl(user.GetAvatarUrl())
