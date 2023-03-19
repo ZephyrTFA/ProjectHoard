@@ -9,6 +9,7 @@ namespace Hoard2.Module
 		{
 			typeof(Dictionary<string, string>),
 			typeof(Dictionary<ulong, string>),
+			typeof(List<string>),
 		};
 
 		Dictionary<string, object> _configData = new Dictionary<string, object>();
