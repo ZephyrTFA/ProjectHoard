@@ -41,12 +41,14 @@ namespace Hoard2.Module.Builtin
 		IUserMessage? GetRuleMessage(IMessageChannel channel, ulong guild)
 		{
 			if (!GuildConfig(guild).TryGet($"rule-message-{channel.Id}", out ulong message)) return null;
+			if (message == 0) return null;
 			return channel.GetMessageAsync(message).GetAwaiter().GetResult() as IUserMessage;
 		}
 
 		void DeleteRuleMessage(IMessageChannel channel, ulong guild)
 		{
 			if (!GuildConfig(guild).TryGet($"rule-message-{channel.Id}", out ulong message)) return;
+			if (message == 0) return;
 			if (channel.GetMessageAsync(message).GetAwaiter().GetResult() is IUserMessage actual)
 				actual.DeleteAsync().Wait();
 			GuildConfig(guild).Remove($"rule-message-{channel.Id}");

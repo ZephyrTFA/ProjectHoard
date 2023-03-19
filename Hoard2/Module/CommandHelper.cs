@@ -324,6 +324,8 @@ namespace Hoard2.Module
 					};
 					if (param.ParameterType == typeof(IMessageChannel))
 						paramOptionBuilder.ChannelTypes = new[] { ChannelType.Text }.ToList();
+					if (param.HasDefaultValue)
+						paramOptionBuilder.IsRequired = false;
 					functionOption.AddOption(paramOptionBuilder);
 				}
 				commandBuilder.AddOption(functionOption);
