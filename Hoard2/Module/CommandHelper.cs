@@ -314,13 +314,18 @@ namespace Hoard2.Module
 				moduleMap.SubCommands.Add(commandMap);
 				var functionOption = new SlashCommandOptionBuilder { Name = commandMap.Name, Description = commandMap.Description, Type = ApplicationCommandOptionType.SubCommand };
 				foreach (var param in commandMap.Params)
-					functionOption.AddOption(new SlashCommandOptionBuilder
+				{
+					var paramOptionBuilder = new SlashCommandOptionBuilder
 					{
 						Name = param.Name!.MTrim(),
 						Description = param.Name!,
 						Type = param.ParameterType.AsOptionType(),
 						IsRequired = param.DefaultValue is null or DBNull,
-					});
+					};
+					if (param.ParameterType == typeof(IMessageChannel))
+						paramOptionBuilder.ChannelTypes = new[] { ChannelType.Text }.ToList();
+					functionOption.AddOption(paramOptionBuilder);
+				}
 				commandBuilder.AddOption(functionOption);
 			}
 
@@ -357,6 +362,9 @@ namespace Hoard2.Module
 				return ApplicationCommandOptionType.Boolean;
 
 			if (type == typeof(IChannel))
+				return ApplicationCommandOptionType.Channel;
+
+			if (type == typeof(IMessageChannel))
 				return ApplicationCommandOptionType.Channel;
 
 			// ints are not supported by discord, use long!
