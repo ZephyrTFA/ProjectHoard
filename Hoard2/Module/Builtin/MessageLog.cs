@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 using Discord;
 using Discord.WebSocket;
@@ -11,6 +12,8 @@ namespace Hoard2.Module.Builtin
 
 		public override async Task DiscordClientOnMessageDeleted(IMessage message, IGuildChannel channel)
 		{
+			if (IsIgnored(channel.Id, channel.GuildId))
+				return;
 			var guild = channel.GuildId;
 			if (!TryGetChannel(guild, out var logChannel)) return;
 			var updateEmbed = new EmbedBuilder()
@@ -26,6 +29,9 @@ namespace Hoard2.Module.Builtin
 
 		public override async Task DiscordClientOnMessageUpdated(IMessage oldMessage, SocketMessage newMessage, IGuildChannel socketMessageChannel)
 		{
+			if (IsIgnored(socketMessageChannel.Id, socketMessageChannel.GuildId))
+				return;
+
 			var guild = socketMessageChannel.GuildId;
 			if (!TryGetChannel(guild, out var logChannel)) return;
 			var updateEmbed = new EmbedBuilder()
@@ -62,6 +68,74 @@ namespace Hoard2.Module.Builtin
 				await command.RespondAsync("Log channel is not set.");
 			else
 				await command.RespondAsync($"Log channel is <#{channelId}>");
+		}
+
+		[ModuleCommand("ignore-channel", "ignore a specific channel", GuildPermission.Administrator)]
+		public async Task IgnoreChannel(SocketSlashCommand command, IMessageChannel channel)
+		{
+			await command.DeferAsync();
+			SetIgnored(channel.Id, command.GuildId!.Value, true);
+			await command.RespondAsync($"<#{channel.Id}> is now ignored.");
+		}
+
+		[ModuleCommand("get-ignored", "get all ignored channels", GuildPermission.Administrator)]
+		public async Task GetIgnored(SocketSlashCommand command)
+		{
+			await command.DeferAsync();
+			var ignored = GuildConfig(command.GuildId!.Value).Get("ignored-channels", new List<ulong>())!;
+			var resp = new StringBuilder("Ignored Channels:\n");
+			foreach (var channel in ignored)
+				resp.AppendLine($"- <#{channel}>");
+			await command.RespondAsync(resp.ToString());
+		}
+
+		[ModuleCommand("clear-ignores", "removes all ignored channels", GuildPermission.Administrator)]
+		public async Task ClearIgnores(SocketSlashCommand command)
+		{
+			var config = GuildConfig(command.GuildId!.Value);
+			var ignored = config.Get("ignored-channels", new List<ulong>())!;
+			var resp = new StringBuilder("Removed Ignored Channels:\n");
+			foreach (var channel in ignored)
+				resp.AppendLine($"- <#{channel}>");
+
+			ignored.Clear();
+			config.Set("ignored-channels", ignored);
+			await command.RespondAsync(resp.ToString());
+		}
+
+		bool IsIgnored(ulong channel, ulong guild)
+		{
+			var ignored = GuildConfig(guild).Get("ignored-channels", new List<ulong>());
+			return ignored!.Contains(channel);
+		}
+
+		void SetIgnored(ulong channel, ulong guild, bool ignore)
+		{
+			var config = GuildConfig(guild);
+			var ignored = config.Get("ignored-channels", new List<ulong>())!;
+			switch (ignore)
+			{
+				case true when ignored.Contains(channel):   return;
+				case false when !ignored.Contains(channel): return;
+
+				case true:
+					ignored.Add(channel);
+					break;
+
+				case false:
+					ignored.Remove(channel);
+					break;
+			}
+
+			config.Set("ignored-channels", ignored);
+		}
+
+		[ModuleCommand("un-ignore-channel", "removes a channel from the ignore list", GuildPermission.Administrator)]
+		public async Task UnIgnoreChannel(SocketSlashCommand command, IMessageChannel channel)
+		{
+			await command.DeferAsync();
+			SetIgnored(channel.Id, command.GuildId!.Value, false);
+			await command.RespondAsync($"<#{channel.Id}> is no longer ignored.");
 		}
 	}
 }
