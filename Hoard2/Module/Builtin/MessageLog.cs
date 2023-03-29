@@ -75,7 +75,7 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.DeferAsync();
 			SetIgnored(channel.Id, command.GuildId!.Value, true);
-			await command.RespondAsync($"<#{channel.Id}> is now ignored.");
+			await command.ModifyOriginalResponse($"<#{channel.Id}> is now ignored.");
 		}
 
 		[ModuleCommand("get-ignored", "get all ignored channels", GuildPermission.Administrator)]
@@ -86,7 +86,7 @@ namespace Hoard2.Module.Builtin
 			var resp = new StringBuilder("Ignored Channels:\n");
 			foreach (var channel in ignored)
 				resp.AppendLine($"- <#{channel}>");
-			await command.RespondAsync(resp.ToString());
+			await command.ModifyOriginalResponse(resp.ToString());
 		}
 
 		[ModuleCommand("clear-ignores", "removes all ignored channels", GuildPermission.Administrator)]
@@ -100,7 +100,7 @@ namespace Hoard2.Module.Builtin
 
 			ignored.Clear();
 			config.Set("ignored-channels", ignored);
-			await command.RespondAsync(resp.ToString());
+			await command.ModifyOriginalResponse(resp.ToString());
 		}
 
 		bool IsIgnored(ulong channel, ulong guild)
@@ -135,7 +135,7 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.DeferAsync();
 			SetIgnored(channel.Id, command.GuildId!.Value, false);
-			await command.RespondAsync($"<#{channel.Id}> is no longer ignored.");
+			await command.ModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
 		}
 	}
 }
