@@ -12,7 +12,7 @@ namespace Hoard2.Module.Builtin
 
 		public override async Task DiscordClientOnMessageDeleted(IMessage message, IGuildChannel channel)
 		{
-			if (IsIgnored(channel.Id, channel.GuildId))
+			if (IsChannelIgnored(channel.Id, channel.GuildId))
 				return;
 			var guild = channel.GuildId;
 			if (!TryGetChannel(guild, out var logChannel)) return;
@@ -29,7 +29,7 @@ namespace Hoard2.Module.Builtin
 
 		public override async Task DiscordClientOnMessageUpdated(IMessage oldMessage, SocketMessage newMessage, IGuildChannel socketMessageChannel)
 		{
-			if (IsIgnored(socketMessageChannel.Id, socketMessageChannel.GuildId))
+			if (IsChannelIgnored(socketMessageChannel.Id, socketMessageChannel.GuildId))
 				return;
 
 			var guild = socketMessageChannel.GuildId;
@@ -74,7 +74,7 @@ namespace Hoard2.Module.Builtin
 		public async Task IgnoreChannel(SocketSlashCommand command, IMessageChannel channel)
 		{
 			await command.DeferAsync();
-			SetIgnored(channel.Id, command.GuildId!.Value, true);
+			SetIgnoredChannel(channel.Id, command.GuildId!.Value, true);
 			await command.ModifyOriginalResponse($"<#{channel.Id}> is now ignored.");
 		}
 
@@ -103,13 +103,39 @@ namespace Hoard2.Module.Builtin
 			await command.ModifyOriginalResponse(resp.ToString());
 		}
 
-		bool IsIgnored(ulong channel, ulong guild)
+		bool IsChannelIgnored(ulong channel, ulong guild)
 		{
 			var ignored = GuildConfig(guild).Get("ignored-channels", new List<ulong>());
-			return ignored!.Contains(channel);
+			if (ignored!.Contains(channel)) return true;
+
+			var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
+			return GuildConfig(guild).Get("ignored-categories", new List<ulong>())!
+				.Select(ignoredCategory => guildInstance.GetCategoryChannel(ignoredCategory))
+				.Any(category => category.Channels.Any(inner => inner.Id == channel));
 		}
 
-		void SetIgnored(ulong channel, ulong guild, bool ignore)
+		void SetIgnoredCategory(ulong category, ulong guild, bool ignore)
+		{
+			var config = GuildConfig(guild);
+			var ignored = config.Get("ignored-categories", new List<ulong>())!;
+			switch (ignore)
+			{
+				case true when ignored.Contains(category):   return;
+				case false when !ignored.Contains(category): return;
+				
+				case true:
+					ignored.Add(category);
+					break;
+				
+				case false:
+					ignored.Remove(category);
+					break;
+			}
+			
+			config.Set("ignored-categories", ignored);
+		}
+
+		void SetIgnoredChannel(ulong channel, ulong guild, bool ignore)
 		{
 			var config = GuildConfig(guild);
 			var ignored = config.Get("ignored-channels", new List<ulong>())!;
@@ -134,7 +160,23 @@ namespace Hoard2.Module.Builtin
 		public async Task UnIgnoreChannel(SocketSlashCommand command, IMessageChannel channel)
 		{
 			await command.DeferAsync();
-			SetIgnored(channel.Id, command.GuildId!.Value, false);
+			SetIgnoredChannel(channel.Id, command.GuildId!.Value, false);
+			await command.ModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
+		}
+
+		[ModuleCommand("ignore-category", "adds a category to the ignore list", GuildPermission.Administrator)]
+		public async Task IgnoreCategory(SocketSlashCommand command, ICategoryChannel channel)
+		{
+			await command.DeferAsync();
+			SetIgnoredCategory(channel.Id, command.GuildId!.Value, true);
+			await command.ModifyOriginalResponse($"<#{channel.Id}> is now ignored.");
+		}
+		
+		[ModuleCommand("un-ignore-category", "removes a category from the ignore list", GuildPermission.Administrator)]
+		public async Task UnIgnoreCategory(SocketSlashCommand command, ICategoryChannel channel)
+		{
+			await command.DeferAsync();
+			SetIgnoredCategory(channel.Id, command.GuildId!.Value, false);
 			await command.ModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
 		}
 	}
