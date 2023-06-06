@@ -71,7 +71,7 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("ignore-channel", "ignore a specific channel", GuildPermission.Administrator)]
-		public async Task IgnoreChannel(SocketSlashCommand command, IMessageChannel channel)
+		public async Task IgnoreChannel(SocketSlashCommand command, IChannel channel)
 		{
 			await command.DeferAsync();
 			SetIgnoredChannel(channel.Id, command.GuildId!.Value, true);
@@ -158,7 +158,7 @@ namespace Hoard2.Module.Builtin
 		}
 
 		[ModuleCommand("un-ignore-channel", "removes a channel from the ignore list", GuildPermission.Administrator)]
-		public async Task UnIgnoreChannel(SocketSlashCommand command, IMessageChannel channel)
+		public async Task UnIgnoreChannel(SocketSlashCommand command, IChannel channel)
 		{
 			await command.DeferAsync();
 			SetIgnoredChannel(channel.Id, command.GuildId!.Value, false);
