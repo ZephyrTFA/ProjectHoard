@@ -109,8 +109,9 @@ namespace Hoard2.Module.Builtin
 			if (ignored!.Contains(channel)) return true;
 
 			var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
-			return GuildConfig(guild).Get("ignored-categories", new List<ulong>())!
+			return ignored
 				.Select(ignoredCategory => guildInstance.GetCategoryChannel(ignoredCategory))
+				.Where(value => value is not null)
 				.Any(category => category.Channels.Any(inner => inner.Id == channel));
 		}
 
@@ -161,22 +162,6 @@ namespace Hoard2.Module.Builtin
 		{
 			await command.DeferAsync();
 			SetIgnoredChannel(channel.Id, command.GuildId!.Value, false);
-			await command.ModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
-		}
-
-		[ModuleCommand("ignore-category", "adds a category to the ignore list", GuildPermission.Administrator)]
-		public async Task IgnoreCategory(SocketSlashCommand command, ICategoryChannel channel)
-		{
-			await command.DeferAsync();
-			SetIgnoredCategory(channel.Id, command.GuildId!.Value, true);
-			await command.ModifyOriginalResponse($"<#{channel.Id}> is now ignored.");
-		}
-		
-		[ModuleCommand("un-ignore-category", "removes a category from the ignore list", GuildPermission.Administrator)]
-		public async Task UnIgnoreCategory(SocketSlashCommand command, ICategoryChannel channel)
-		{
-			await command.DeferAsync();
-			SetIgnoredCategory(channel.Id, command.GuildId!.Value, false);
 			await command.ModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
 		}
 	}
