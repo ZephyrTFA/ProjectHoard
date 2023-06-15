@@ -19,4 +19,12 @@
         <PackageReference Include="Octokit" Version="6.0.0" />
         <PackageReference Include="Tgstation.Server.Client" Version="11.4.3" />
     </ItemGroup>
+
+    <ItemGroup>
+      <None Update="Properties\launchSettings.json.example">
+        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </None>
+    </ItemGroup>
 </Project>
