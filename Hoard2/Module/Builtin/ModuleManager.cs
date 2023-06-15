@@ -1,7 +1,7 @@
-﻿using System.Text;
-
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
+
+using Hoard2.Util;
 
 namespace Hoard2.Module.Builtin
 {
@@ -9,42 +9,52 @@ namespace Hoard2.Module.Builtin
 	{
 		public ModuleManager(string configPath) : base(configPath) { }
 
-		[ModuleCommand("load-module", "Load a module", GuildPermission.Administrator)]
-		public static async Task LoadModule(SocketSlashCommand command, string moduleId)
+		[ModuleCommand(GuildPermission.Administrator)]
+		[CommandGuildOnly]
+		public async Task UnloadModule(SocketSlashCommand command, string moduleID)
 		{
-			async Task LoadModuleActual()
+			await command.DeferAsync();
+			if (!ModuleHelper.IsModuleLoaded(command.GuildId!.Value, ModuleHelper.TypeMap[moduleID]))
 			{
-				await ModuleHelper.LoadModule(command.GuildId!.Value, moduleId);
-				await command.ModifyOriginalResponse("Module loaded.");
+				await command.SendOrModifyOriginalResponse($"Module `{moduleID}` is not loaded.");
+				return;
 			}
-			await command.RespondAsync("Loading...");
-			_ = CommandHelper.RunLongCommandTask(LoadModuleActual, await command.GetOriginalResponseAsync());
+
+			ModuleHelper.UnloadModule(command.GuildId!.Value, ModuleHelper.TypeMap[moduleID]);
+			await CommandHelper.RefreshCommands(command.GuildId.Value);
+			await command.SendOrModifyOriginalResponse($"Unloaded module `{moduleID}`.");
 		}
 
-		[ModuleCommand("unload-module", "Unload a module", GuildPermission.Administrator)]
-		public static async Task UnloadModule(SocketSlashCommand command, string moduleId)
+		[ModuleCommand(GuildPermission.Administrator)]
+		[CommandGuildOnly]
+		public static async Task LoadModule(SocketSlashCommand command, string moduleID)
 		{
-			async Task UnloadModuleActual()
-			{
-				await ModuleHelper.UnloadModule(command.GuildId!.Value, moduleId);
-				await command.ModifyOriginalResponse("Module unloaded.");
-			}
-			await command.RespondAsync("Unloading...");
-			_ = CommandHelper.RunLongCommandTask(UnloadModuleActual, await command.GetOriginalResponseAsync());
-		}
+			await command.DeferAsync();
 
-		[ModuleCommand("See all available modules", GuildPermission.Administrator)]
-		public static async Task ListModules(SocketSlashCommand command)
-		{
-			var response = new StringBuilder();
-			response.AppendLine($"There are currently {ModuleHelper.ModuleTypes.Count} modules:\n```diff");
-			foreach (var (moduleId, _) in ModuleHelper.ModuleTypes)
+			switch (ModuleHelper.TryLoadModule(command.GuildId!.Value, moduleID, out var exception, out var failReason))
 			{
-				var loaded = ModuleHelper.IsModuleLoaded(command.GuildId!.Value, moduleId);
-				response.AppendLine($"{(loaded ? "+" : "-")} | {moduleId}");
+				case ModuleLoadResult.Loaded:
+					await CommandHelper.RefreshCommands(command.GuildId.Value);
+					await command.SendOrModifyOriginalResponse($"Module `{moduleID}` loaded.");
+					break;
+
+				case ModuleLoadResult.AlreadyLoaded:
+					await command.SendOrModifyOriginalResponse($"Module `{moduleID}` is already loaded.");
+					break;
+
+				case ModuleLoadResult.LoadErrored:
+					await command.SendOrModifyOriginalResponse($"Failed to load module `{moduleID}`:\n{exception}");
+					break;
+
+				case ModuleLoadResult.LoadFailed:
+					await command.SendOrModifyOriginalResponse($"Failed to load module `{moduleID}`: `{failReason}`");
+					break;
+
+				default:
+				case ModuleLoadResult.NotFound:
+					await command.SendOrModifyOriginalResponse($"Failed to load module `{moduleID}`: `unable to find module name in map`");
+					break;
 			}
-			response.AppendLine("```");
-			await command.RespondAsync(response.ToString());
 		}
 	}
 }

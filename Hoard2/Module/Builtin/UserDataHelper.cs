@@ -1,4 +1,6 @@
-﻿using Discord.WebSocket;
+﻿using System.ComponentModel;
+
+using Discord.WebSocket;
 
 namespace Hoard2.Module.Builtin
 {
@@ -10,7 +12,8 @@ namespace Hoard2.Module.Builtin
 
 		public ModuleConfig GetGuildUserConfig(ulong user, ulong guild, string module) => CustomConfig($"{user}-{module}-{guild}");
 
-		[ModuleCommand("get-user-data", "Gets all of your user data")]
+		[ModuleCommand]
+		[Description("Get all of your stored personal data.")]
 		public async Task GetUserData(SocketSlashCommand command) => await command.RespondAsync("Not implemented");
 	}
 }

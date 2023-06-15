@@ -1,4 +1,6 @@
-﻿using Discord;
+﻿using System.Reflection;
+
+using Discord;
 using Discord.WebSocket;
 
 using Hoard2.Module;
@@ -27,7 +29,7 @@ namespace Hoard2
 			HoardToken = workerToken;
 			DiscordClient = new DiscordSocketClient(new DiscordSocketConfig
 			{
-				GatewayIntents = GatewayIntents.All,
+				GatewayIntents = GatewayIntents.All ^ (GatewayIntents.GuildPresences | GatewayIntents.GuildScheduledEvents),
 				DefaultRetryMode = RetryMode.RetryRatelimit,
 				MessageCacheSize = 200,
 				AlwaysDownloadUsers = true,
@@ -54,7 +56,9 @@ namespace Hoard2
 				_ => LogLevel.None,
 			};
 
-			Logger.Log(level, message.Exception, "Discord: {}", message.Message);
+			// ignore TaskCanceledExceptions, it'll happen for gateway activities that take too long and when shutting down
+			if (message.Exception is not TaskCanceledException)
+				Logger.Log(level, message.Exception, "Discord: {}", message.Message);
 			return Task.CompletedTask;
 		}
 
@@ -104,7 +108,13 @@ namespace Hoard2
 			await DiscordClient.SetStatusAsync(UserStatus.DoNotDisturb);
 			await DiscordClient.CurrentUser.ModifyAsync(properties => properties.Username = "Project Hoard");
 
-			await ModuleHelper.RestoreModules();
+			ModuleHelper.ModuleDataStorageDirectory = DataDirectory.CreateSubdirectory("module_data");
+			ModuleHelper.CacheAssembly(Assembly.GetExecutingAssembly());
+			ModuleHelper.RestoreGuildModules();
+			ModuleHelper.AssertInnateModules();
+
+			await CommandHelper.RefreshCommands();
+
 			await DiscordClient.SetStatusAsync(UserStatus.Online);
 			Logger.LogInformation("Hoard Ready");
 			return true;
@@ -127,15 +137,16 @@ namespace Hoard2
 			DiscordClient.UserJoined += ModuleHelper.DiscordClientOnUserJoined;
 			DiscordClient.UserLeft += ModuleHelper.DiscordClientOnUserLeft;
 			DiscordClient.UserUpdated += ModuleHelper.DiscordClientOnUserUpdated;
-			DiscordClient.SlashCommandExecuted += CommandHelper.ProcessApplicationCommand;
-			DiscordClient.JoinedGuild += ModuleHelper.JoinedGuild;
-			DiscordClient.LeftGuild += ModuleHelper.LeftGuild;
-			DiscordClient.ButtonExecuted += ModuleHelper.OnButton;
-			DiscordClient.SelectMenuExecuted += ModuleHelper.OnMenu;
-			DiscordClient.UserBanned += ModuleHelper.UserBanned;
-			DiscordClient.UserUnbanned += ModuleHelper.UserUnbanned;
-		}
+			DiscordClient.JoinedGuild += ModuleHelper.DiscordClientOnJoinedGuild;
+			DiscordClient.LeftGuild += ModuleHelper.DiscordClientOnLeftGuild;
+			DiscordClient.UserBanned += ModuleHelper.DiscordClientOnUserBanned;
+			DiscordClient.UserUnbanned += ModuleHelper.DiscordClientOnUserUnbanned;
+			DiscordClient.InviteCreated += ModuleHelper.DiscordClientOnInviteCreated;
+			DiscordClient.InviteDeleted += ModuleHelper.DiscordClientOnInviteDeleted;
 
-		public static string GetGuildConfigFolder(ulong guild) => DataDirectory.CreateSubdirectory(guild.ToString()).FullName;
+			DiscordClient.ButtonExecuted += CommandHelper.DiscordClientOnButtonExecuted;
+			DiscordClient.SelectMenuExecuted += CommandHelper.DiscordClientOnSelectMenuExecuted;
+			DiscordClient.SlashCommandExecuted += CommandHelper.DiscordClientOnSlashCommandExecuted;
+		}
 	}
 }

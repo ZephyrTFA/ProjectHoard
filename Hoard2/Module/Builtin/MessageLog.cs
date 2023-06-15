@@ -1,8 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 using Discord;
 using Discord.WebSocket;
+
+using Hoard2.Util;
 
 namespace Hoard2.Module.Builtin
 {
@@ -10,11 +14,12 @@ namespace Hoard2.Module.Builtin
 	{
 		public MessageLog(string configPath) : base(configPath) { }
 
-		public override async Task DiscordClientOnMessageDeleted(IMessage message, IGuildChannel channel)
+		public override async Task DiscordClientOnMessageDeleted(SocketMessage message, IMessageChannel channel)
 		{
-			if (IsChannelIgnored(channel.Id, channel.GuildId))
+			var guild = channel.GetGuildId();
+			if (guild == 0 || IsChannelIgnored(channel.Id, guild))
 				return;
-			var guild = channel.GuildId;
+
 			if (!TryGetChannel(guild, out var logChannel)) return;
 			var updateEmbed = new EmbedBuilder()
 				.WithAuthor(message.Author)
@@ -27,12 +32,20 @@ namespace Hoard2.Module.Builtin
 			await logChannel.SendMessageAsync(embed: updateEmbed.Build());
 		}
 
-		public override async Task DiscordClientOnMessageUpdated(IMessage oldMessage, SocketMessage newMessage, IGuildChannel socketMessageChannel)
+		public override async Task DiscordClientOnMessagesBulkDeleted(ReadOnlyCollection<SocketMessage> messages, ISocketMessageChannel channel)
 		{
-			if (IsChannelIgnored(socketMessageChannel.Id, socketMessageChannel.GuildId))
+			foreach (var message in messages)
+			{
+				await DiscordClientOnMessageDeleted(message, channel);
+			}
+		}
+
+		public override async Task DiscordClientOnMessageUpdated(SocketMessage oldMessage, SocketMessage newMessage, ISocketMessageChannel channel)
+		{
+			var guild = channel.GetGuildId();
+			if (guild == 0 || IsChannelIgnored(channel.Id, guild))
 				return;
 
-			var guild = socketMessageChannel.GuildId;
 			if (!TryGetChannel(guild, out var logChannel)) return;
 			var updateEmbed = new EmbedBuilder()
 				.WithAuthor(newMessage.Author)
@@ -41,7 +54,7 @@ namespace Hoard2.Module.Builtin
 				.WithColor(Color.Teal)
 				.AddField("Previous Contents", oldMessage.CleanContent)
 				.AddField("Author", $"{newMessage.Author.Mention} ({newMessage.Author.Id})")
-				.AddField("Jump Information", $"<#{socketMessageChannel.Id}> | [View]({newMessage.GetJumpUrl()})");
+				.AddField("Jump Information", $"<#{channel.Id}> | [View]({newMessage.GetJumpUrl()})");
 			await logChannel.SendMessageAsync(embed: updateEmbed.Build());
 		}
 
@@ -54,14 +67,16 @@ namespace Hoard2.Module.Builtin
 			return channel is not null;
 		}
 
-		[ModuleCommand("set-log-channel", "sets the channel used for logging", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Sets the channel used for logging.")]
 		public async Task SetLogChannel(SocketSlashCommand command, IChannel channel)
 		{
 			GuildConfig(command.GuildId!.Value).Set("log-channel", channel.Id);
 			await command.RespondAsync($"Updated channel to <#{channel.Id}>");
 		}
 
-		[ModuleCommand("get-log-channel", "sets the channel used for logging", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Gets the channel used for logging.")]
 		public async Task GetLogChannel(SocketSlashCommand command)
 		{
 			if (!GuildConfig(command.GuildId!.Value).TryGet("log-channel", out ulong channelId))
@@ -70,15 +85,17 @@ namespace Hoard2.Module.Builtin
 				await command.RespondAsync($"Log channel is <#{channelId}>");
 		}
 
-		[ModuleCommand("ignore-channel", "ignore a specific channel", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Ignore a specific channel.")]
 		public async Task IgnoreChannel(SocketSlashCommand command, IChannel channel)
 		{
 			await command.DeferAsync();
 			SetIgnoredChannel(channel.Id, command.GuildId!.Value, true);
-			await command.ModifyOriginalResponse($"<#{channel.Id}> is now ignored.");
+			await command.SendOrModifyOriginalResponse($"<#{channel.Id}> is now ignored.");
 		}
 
-		[ModuleCommand("get-ignored", "get all ignored channels", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Get all ignored channels.")]
 		public async Task GetIgnored(SocketSlashCommand command)
 		{
 			await command.DeferAsync();
@@ -86,10 +103,11 @@ namespace Hoard2.Module.Builtin
 			var resp = new StringBuilder("Ignored Channels:\n");
 			foreach (var channel in ignored)
 				resp.AppendLine($"- <#{channel}>");
-			await command.ModifyOriginalResponse(resp.ToString());
+			await command.SendOrModifyOriginalResponse(resp.ToString());
 		}
 
-		[ModuleCommand("clear-ignores", "removes all ignored channels", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Removes all ignored channels.")]
 		public async Task ClearIgnores(SocketSlashCommand command)
 		{
 			var config = GuildConfig(command.GuildId!.Value);
@@ -100,7 +118,7 @@ namespace Hoard2.Module.Builtin
 
 			ignored.Clear();
 			config.Set("ignored-channels", ignored);
-			await command.ModifyOriginalResponse(resp.ToString());
+			await command.SendOrModifyOriginalResponse(resp.ToString());
 		}
 
 		bool IsChannelIgnored(ulong channel, ulong guild)
@@ -123,16 +141,16 @@ namespace Hoard2.Module.Builtin
 			{
 				case true when ignored.Contains(category):   return;
 				case false when !ignored.Contains(category): return;
-				
+
 				case true:
 					ignored.Add(category);
 					break;
-				
+
 				case false:
 					ignored.Remove(category);
 					break;
 			}
-			
+
 			config.Set("ignored-categories", ignored);
 		}
 
@@ -157,12 +175,13 @@ namespace Hoard2.Module.Builtin
 			config.Set("ignored-channels", ignored);
 		}
 
-		[ModuleCommand("un-ignore-channel", "removes a channel from the ignore list", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Removes a channel from the ignore list.")]
 		public async Task UnIgnoreChannel(SocketSlashCommand command, IChannel channel)
 		{
 			await command.DeferAsync();
 			SetIgnoredChannel(channel.Id, command.GuildId!.Value, false);
-			await command.ModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
+			await command.SendOrModifyOriginalResponse($"<#{channel.Id}> is no longer ignored.");
 		}
 	}
 }

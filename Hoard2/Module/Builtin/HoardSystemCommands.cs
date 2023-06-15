@@ -6,7 +6,7 @@ namespace Hoard2.Module.Builtin
 	{
 		public HoardSystemCommands(string configPath) : base(configPath) { }
 
-		[ModuleCommand("restart-hoard", "restart hoard")]
+		[ModuleCommand]
 		public static async Task RestartHoard(SocketSlashCommand command)
 		{
 			if (command.User.Id is not 946283057915232337)
@@ -20,32 +20,7 @@ namespace Hoard2.Module.Builtin
 			HoardMain.RestartWorker();
 		}
 
-		[ModuleCommand("Wipe and refresh all module commands")]
-		public static async Task WipeAndRefreshModuleCommands(SocketSlashCommand command)
-		{
-			if (command.User.Id is not 946283057915232337)
-			{
-				await command.RespondAsync("Who are you?", ephemeral: true);
-				return;
-			}
-
-			await command.RespondAsync("Working...");
-			var task = new Task(() =>
-			{
-				CommandHelper.WipeAllGuildCommands(command).Wait();
-				CommandHelper.RefreshAllGuildCommands().Wait();
-			});
-			_ = task.ContinueWith(_ =>
-			{
-				if (task.IsCompletedSuccessfully)
-					command.ModifyOriginalResponse("Done.").Wait();
-				else
-					command.ModifyOriginalResponse($"Failed: {task.Exception!.Message}").Wait();
-			});
-			task.Start();
-		}
-
-		[ModuleCommand("shutdown-hoard", "restart hoard")]
+		[ModuleCommand]
 		public static async Task ShutdownHoard(SocketSlashCommand command)
 		{
 			if (command.User.Id is not 946283057915232337)
@@ -55,7 +30,6 @@ namespace Hoard2.Module.Builtin
 			}
 
 			await command.RespondAsync("Shutting down...");
-			await CommandHelper.WipeAllGuildCommands();
 			HoardMain.Logger.LogInformation("Shutting down");
 			HoardMain.StopWorker();
 		}

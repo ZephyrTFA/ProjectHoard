@@ -1,4 +1,6 @@
-﻿using Discord;
+﻿using System.ComponentModel;
+
+using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
 
@@ -13,28 +15,32 @@ namespace Hoard2.Module.Builtin
 
 		public MemberLog(string configPath) : base(configPath) { }
 
-		[ModuleCommand("set-member-join-channel", "Update the target channel for member joins", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Update the target channel for member joins.")]
 		public async Task SetJoinChannel(SocketSlashCommand command, IChannel channel)
 		{
 			GuildConfig(command.GuildId!.Value).Set(ChannelJoin, channel.Id);
 			await command.RespondAsync(text: $"Updated the target log channel to <#{channel.Id}>");
 		}
 
-		[ModuleCommand("set-member-leave-channel", "Update the target channel for member leaves", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Update the target channel for member leaves.")]
 		public async Task SetLeaveChannel(SocketSlashCommand command, IChannel channel)
 		{
 			GuildConfig(command.GuildId!.Value).Set(ChannelLeave, channel.Id);
 			await command.RespondAsync($"Updated the target log channel to <#{channel.Id}>");
 		}
 
-		[ModuleCommand("set-member-unban-channel", "Update the target channel for member unbans", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Update the target channel for member unbans.")]
 		public async Task SetBanChannel(SocketSlashCommand command, IChannel channel)
 		{
 			GuildConfig(command.GuildId!.Value).Set(ChannelUnban, channel.Id);
 			await command.RespondAsync($"Updated the target log channel to <#{channel.Id}>");
 		}
 
-		[ModuleCommand("set-member-ban-channel", "Update the target channel for member bans", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Update the target channel for member bans.")]
 		public async Task SetUnbanChannel(SocketSlashCommand command, IChannel channel)
 		{
 			GuildConfig(command.GuildId!.Value).Set(ChannelBan, channel.Id);
@@ -50,7 +56,8 @@ namespace Hoard2.Module.Builtin
 			return await HoardMain.DiscordClient.GetChannelAsync(channelId) as IMessageChannel;
 		}
 
-		[ModuleCommand("check-member-log-channels", "Check the current target channel", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Check the current target channel.")]
 		public async Task CheckMemberLogChannel(SocketSlashCommand command)
 		{
 			var joinChannel = await GetChannel(command.GuildId!.Value, ChannelJoin);
@@ -100,7 +107,7 @@ namespace Hoard2.Module.Builtin
 				.Build());
 		}
 
-		public override async Task UserBanned(SocketGuild guild, SocketUser user)
+		public override async Task DiscordClientOnUserBanned(SocketUser user, SocketGuild guild)
 		{
 			if (GuildConfig(guild.Id).Get<ulong?>(ChannelBan) is not { } channelId)
 				return;
@@ -135,7 +142,7 @@ namespace Hoard2.Module.Builtin
 				.Build());
 		}
 
-		public override async Task UserUnbanned(SocketGuild guild, SocketUser user)
+		public override async Task DiscordClientOnUserUnbanned(SocketUser user, SocketGuild guild)
 		{
 			if (GuildConfig(guild.Id).Get<ulong?>(ChannelUnban) is not { } channelId)
 				return;

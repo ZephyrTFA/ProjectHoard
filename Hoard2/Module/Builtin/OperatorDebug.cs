@@ -1,5 +1,9 @@
-﻿using Discord;
+﻿using System.ComponentModel;
+
+using Discord;
 using Discord.WebSocket;
+
+using Hoard2.Util;
 
 namespace Hoard2.Module.Builtin
 {
@@ -13,18 +17,20 @@ namespace Hoard2.Module.Builtin
 			return guild is 837744059291533392;
 		}
 
-		[ModuleCommand("debug-halting-command", "enqueues a command that tries to sleep for a minute", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Tries to sleep for a 20 seconds.")]
 		public static async Task DebugHaltingCommand(SocketSlashCommand command)
 		{
-			await command.RespondAsync("Halting...");
-			await Task.Delay(TimeSpan.FromSeconds(10));
-			await command.ModifyOriginalResponseAsync(prop => prop.Content = "A halting warning should have been issued.");
+			await command.SendOrModifyOriginalResponse("Halting...");
+			await Task.Delay(TimeSpan.FromSeconds(20));
+			await command.SendOrModifyOriginalResponse("A halting warning should have been issued.");
 		}
 
-		[ModuleCommand("debug-exception-command", "enqueues a command that throws an exception", GuildPermission.Administrator)]
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Throws an exception.")]
 		public static async Task DebugExceptionCommand(SocketSlashCommand command)
 		{
-			await command.RespondAsync("Throwing...");
+			await command.SendOrModifyOriginalResponse("Throwing...");
 			throw new Exception("This is a test exception.");
 		}
 	}

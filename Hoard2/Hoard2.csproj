@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UserSecretsId>dotnet-Hoard2-F597A4BC-CBAE-47F6-9370-EE6DE811865C</UserSecretsId>
         <ImplicitUsings>true</ImplicitUsings>
+        <LangVersion>11</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>

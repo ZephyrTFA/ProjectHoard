@@ -1,354 +1,354 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 using Discord;
 using Discord.WebSocket;
 
 using Hoard2.Module.Builtin;
+using Hoard2.Util;
 
 namespace Hoard2.Module
 {
+	public enum ModuleLoadResult
+	{
+		AlreadyLoaded,
+		NotFound,
+		LoadFailed,
+		LoadErrored,
+		Loaded,
+	}
+
 	public static class ModuleHelper
 	{
-		public static readonly Dictionary<string, Type> ModuleTypes = new Dictionary<string, Type>();
-		public static readonly Dictionary<string, ModuleBase> ModuleInstances = new Dictionary<string, ModuleBase>();
-		public static readonly Dictionary<ulong, List<string>> GuildModules = new Dictionary<ulong, List<string>>();
-		public static readonly Dictionary<string, uint> ModuleUsageCount = new Dictionary<string, uint>();
+		internal static readonly Dictionary<string, Type> TypeMap = new Dictionary<string, Type>();
+		internal static readonly Dictionary<Type, ModuleBase> InstanceMap = new Dictionary<Type, ModuleBase>();
+		static readonly Dictionary<Type, uint> LoadCount = new Dictionary<Type, uint>();
+		static readonly Dictionary<ulong, ICollection<Type>> LoadedMap = new Dictionary<ulong, ICollection<Type>>();
+		internal static DirectoryInfo ModuleDataStorageDirectory = null!;
 
-		public static readonly IReadOnlyList<Type> SystemModules = new[]
+		public static readonly Type[] InnateModules =
 		{
 			typeof(ModuleManager),
 			typeof(UserDataHelper),
 		};
 
-		static bool _restoring;
-
-		public static T? GetModuleInstance<T>(ulong guild) where T : ModuleBase
+		public static bool IsModuleLoaded(ulong guild, Type moduleType)
 		{
-			// Verify that guild has the module loaded!
-			var moduleId = typeof(T).Name.MTrim();
-			if (!GuildModules.TryGetValue(guild, out var loadedModules)) return null;
-			if (!loadedModules.Contains(moduleId)) return null;
-			// okay, its loaded, now return the global instance
-			return (T?)ModuleInstances.Select(kvp => kvp.Value).FirstOrDefault(module => module.GetType() == typeof(T));
+			if (!LoadedMap.TryGetValue(guild, out var map))
+				return false;
+			return map.Contains(moduleType);
 		}
 
-		public static bool IsModuleLoaded(ulong guild, ModuleBase module)
+		public static bool TryGetModule<T>([NotNullWhen(true)] out T? value) where T : ModuleBase
 		{
-			var moduleId = module.GetModuleName();
-			if (!GuildModules.ContainsKey(guild)) return false;
-			return GuildModules[guild].Contains(moduleId);
-		}
-
-		public static bool IsModuleLoaded(ulong guild, string module)
-		{
-			if (!GuildModules.ContainsKey(guild)) return false;
-			return GuildModules[guild].Contains(module);
-		}
-
-		public static void LoadAssembly(Assembly assembly, out List<string> errors)
-		{
-			errors = new List<string>();
-			foreach (var type in assembly.ExportedTypes)
+			try
 			{
-				if (type.BaseType == typeof(ModuleBase))
-				{
-					var moduleId = type.Name.MTrim();
-					if (ModuleTypes.ContainsKey(moduleId))
-					{
-						errors.Add($"Conflicting module {moduleId} in assembly ({assembly.FullName}){assembly.Location}");
-						continue;
-					}
+				value = (T)InstanceMap[typeof(T)];
+				return true;
+			}
+			catch
+			{
+				value = null;
+				return false;
+			}
+		}
 
-					ModuleTypes[moduleId] = type;
+		public static ModuleLoadResult TryLoadModule(ulong guild, string moduleName, out Exception? exception, out string? failReason)
+		{
+			failReason = String.Empty;
+			exception = null;
+			try
+			{
+				if (!TypeMap.TryGetValue(moduleName, out var moduleType))
+					return ModuleLoadResult.NotFound;
+				if (IsModuleLoaded(guild, moduleType))
+					return ModuleLoadResult.AlreadyLoaded;
+
+				if (!DoLoadModule(guild, moduleType, out failReason))
+					return ModuleLoadResult.LoadFailed;
+				return ModuleLoadResult.Loaded;
+			}
+			catch (Exception error)
+			{
+				exception = error;
+				return ModuleLoadResult.LoadErrored;
+			}
+		}
+
+		static bool DoLoadModule(ulong guild, Type moduleType, out string failReason)
+		{
+			var module = ConstructModule(moduleType);
+			if (!module.TryLoad(guild, out failReason))
+				return false;
+
+			module.OnLoad(guild);
+			CommandHelper.ParseModuleCommands(moduleType);
+			if (!LoadedMap.ContainsKey(guild))
+				LoadedMap[guild] = new List<Type>();
+			LoadedMap[guild].Add(moduleType);
+			if (LoadCount.ContainsKey(moduleType))
+				LoadCount[moduleType]++;
+			else
+				LoadCount[moduleType] = 1;
+
+			UpdateRestoreInformation();
+			return true;
+		}
+
+		public static void UnloadModule(ulong guild, Type moduleType)
+		{
+			if (!IsModuleLoaded(guild, moduleType))
+				return;
+			DoUnloadModule(guild, moduleType);
+		}
+
+		static void DoUnloadModule(ulong guild, Type moduleType)
+		{
+			var instance = InstanceMap[moduleType];
+			instance.OnUnload(guild);
+
+			CommandHelper.DropModuleCommands(moduleType);
+			LoadedMap[guild].Remove(moduleType);
+			if (LoadedMap[guild].Count == 0)
+				LoadedMap.Remove(guild);
+
+			var loadCount = --LoadCount[moduleType];
+			if (loadCount == 0)
+			{
+				InstanceMap.Remove(moduleType);
+				LoadCount.Remove(moduleType);
+			}
+
+			UpdateRestoreInformation();
+		}
+
+		static ModuleBase ConstructModule(Type moduleType)
+		{
+			if (InstanceMap.TryGetValue(moduleType, out var module))
+				return module;
+			var constructor = moduleType.GetConstructor(new[] { typeof(string) })!;
+			var moduleInstance = (ModuleBase)constructor.Invoke(new object?[]
+			{
+				ModuleDataStorageDirectory.CreateSubdirectory(moduleType.FullName!.GetNormalizedRepresentation()).FullName,
+			});
+			InstanceMap[moduleType] = moduleInstance;
+			return moduleInstance;
+		}
+
+		public static void CacheAssembly(Assembly assembly)
+		{
+			foreach (var exportedType in assembly.GetExportedTypes())
+				if (exportedType.IsAssignableTo(typeof(ModuleBase)))
+					TypeMap[exportedType.GetNormalizedRepresentation()] = exportedType;
+		}
+
+		public static void WipeCache()
+		{
+			TypeMap.Clear();
+		}
+
+		static bool _doForAllWorking;
+		static async Task DoForAll(ulong matchGuild, Func<ModuleBase, Task> action)
+		{
+			while (_doForAllWorking)
+				await Task.Yield();
+			_doForAllWorking = true;
+
+			var tasks = new List<Task>();
+			foreach (var (type, module) in InstanceMap)
+			{
+				if (matchGuild != 0 && !IsModuleLoaded(matchGuild, type))
+					continue;
+				tasks.Add(action(module));
+			}
+			while (tasks.Count != 0)
+			{
+				tasks = tasks.FindAll(task => !task.IsCompleted);
+				await Task.Yield();
+			}
+
+			_doForAllWorking = false;
+		}
+
+		public static async Task DiscordClientOnMessageReceived(SocketMessage message)
+		{
+			await DoForAll(message.Channel.GetGuildId(), async module =>
+			{
+				await module.DiscordClientOnMessageReceived(message);
+			});
+		}
+
+		public static async Task DiscordClientOnMessageDeleted(Cacheable<IMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel)
+		{
+			if (!message.HasValue || message.Value is not SocketMessage socketMessage)
+				return;
+			var channelActual = await channel.GetOrDownloadAsync();
+			await DoForAll(channelActual.GetGuildId(), async module =>
+			{
+				await module.DiscordClientOnMessageDeleted(socketMessage, channelActual);
+			});
+		}
+
+		public static async Task DiscordClientOnMessagesBulkDeleted(IReadOnlyCollection<Cacheable<IMessage, ulong>> messages, Cacheable<IMessageChannel, ulong> channel)
+		{
+			var messagesActual = messages.Where(message => message.HasValue).Select(message => (SocketMessage)message.Value).ToList().AsReadOnly();
+			var channelActual = (ISocketMessageChannel)await channel.GetOrDownloadAsync();
+			await DoForAll(channelActual.GetGuildId(), async module =>
+			{
+				await module.DiscordClientOnMessagesBulkDeleted(messagesActual, channelActual);
+			});
+		}
+
+		public static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> oldMessage, SocketMessage newMessage, ISocketMessageChannel channel)
+		{
+			if (!oldMessage.HasValue || oldMessage.Value is not SocketMessage socketMessage)
+				return;
+			await DoForAll(channel.GetGuildId(), async module =>
+			{
+				await module.DiscordClientOnMessageUpdated(socketMessage, newMessage, channel);
+			});
+		}
+
+		public static async Task DiscordClientOnUserJoined(SocketGuildUser user)
+		{
+			await DoForAll(user.Guild.Id, async module =>
+			{
+				await module.DiscordClientOnUserJoined(user);
+			});
+		}
+
+		public static async Task DiscordClientOnUserLeft(SocketGuild guild, SocketUser user)
+		{
+			await DoForAll(guild.Id, async module =>
+			{
+				await module.DiscordClientOnUserLeft(guild, user);
+			});
+		}
+
+		public static async Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser)
+		{
+			var guildId = newUser is SocketGuildUser guildUser ? guildUser.Guild.Id : 0;
+			await DoForAll(guildId, async module =>
+			{
+				await module.DiscordClientOnUserUpdated(oldUser, newUser);
+			});
+		}
+
+		public static async Task DiscordClientOnJoinedGuild(SocketGuild guild)
+		{
+			await DoForAll(0, async module =>
+			{
+				await module.DiscordClientOnJoinedGuild(guild);
+			});
+		}
+
+		public static async Task DiscordClientOnLeftGuild(SocketGuild guild)
+		{
+			await DoForAll(0, async module =>
+			{
+				await module.DiscordClientOnLeftGuild(guild);
+			});
+		}
+
+		public static async Task DiscordClientOnUserBanned(SocketUser user, SocketGuild guild)
+		{
+			await DoForAll(guild.Id, async module =>
+			{
+				await module.DiscordClientOnUserBanned(user, guild);
+			});
+		}
+
+		public static async Task DiscordClientOnUserUnbanned(SocketUser user, SocketGuild guild)
+		{
+			await DoForAll(guild.Id, async module =>
+			{
+				await module.DiscordClientOnUserUnbanned(user, guild);
+			});
+		}
+
+		public static async Task DiscordClientOnInviteCreated(SocketInvite invite)
+		{
+			await DoForAll(invite.Guild.Id, async module =>
+			{
+				await module.DiscordClientOnInviteCreated(invite);
+			});
+		}
+
+		public static async Task DiscordClientOnInviteDeleted(SocketGuildChannel oldInviteChannel, string oldInviteUrl)
+		{
+			await DoForAll(oldInviteChannel.GetGuildId(), async module =>
+			{
+				await module.DiscordClientOnInviteDeleted(oldInviteChannel, oldInviteUrl);
+			});
+		}
+
+		static Dictionary<ulong, string[]>? GetModulesToRestore()
+		{
+			var storePath = Path.Join(ModuleDataStorageDirectory.FullName, "module_persistence_map.xml");
+			if (!File.Exists(storePath))
+				return null;
+			using var store = File.OpenRead(storePath);
+			var deserializer = new DataContractSerializer(typeof(Dictionary<ulong, string[]>));
+			return (Dictionary<ulong, string[]>)deserializer.ReadObject(store)!;
+		}
+
+		static void UpdateRestoreInformation()
+		{
+			var storePath = Path.Join(ModuleDataStorageDirectory.FullName, "module_persistence_map.xml");
+			using var store = new MemoryStream();
+			var serializer = new DataContractSerializer(typeof(Dictionary<ulong, string[]>));
+			
+			var writing = new Dictionary<ulong, string[]>();
+			foreach (var (guild, moduleList) in LoadedMap)
+				writing[guild] = moduleList.Select(module => module.GetNormalizedRepresentation()).ToArray();
+			
+			serializer.WriteObject(store, writing);
+			File.WriteAllBytes(storePath, store.ToArray());
+		}
+
+		public static void RestoreGuildModules()
+		{
+			if (GetModulesToRestore() is not { } toRestore)
+				return;
+			foreach (var (guild, typeArray) in toRestore)
+				foreach (var type in typeArray)
+					DoLoadModule(guild, TypeMap[type], out _);
+		}
+
+		public static void AssertInnateModules()
+		{
+			var knownFailures = new List<Type>();
+			foreach (var guild in HoardMain.DiscordClient.Guilds.Select(guild => guild.Id))
+			{
+				foreach (var module in InnateModules)
+				{
+					if (IsModuleLoaded(guild, module))
+						continue;
+					switch (TryLoadModule(guild, module.GetNormalizedRepresentation(), out var exception, out var failReason))
+					{
+						case ModuleLoadResult.NotFound:
+							if (knownFailures.Contains(module))
+								break;
+							HoardMain.Logger.LogError("Failed to load innate module: {}\n\t- does not exist", module);
+							knownFailures.Add(module);
+							break;
+
+						case ModuleLoadResult.LoadFailed:
+							HoardMain.Logger.LogError("Failed to load innate module: {}\n\t- '{}'", module, failReason);
+							break;
+
+						case ModuleLoadResult.LoadErrored:
+							HoardMain.Logger.LogError(exception, "Failed to load innate module: {}", module);
+							break;
+
+						case ModuleLoadResult.AlreadyLoaded:
+						case ModuleLoadResult.Loaded:
+						default:
+							break;
+					}
 				}
 			}
-
-			HoardMain.DiscordClient.SetGameAsync($"{ModuleTypes.Count} modules", type: ActivityType.Watching).Wait();
-		}
-
-		public static async Task UnloadModule(ulong guild, string module)
-		{
-			HoardMain.Logger.LogInformation("Trying to unload module '{}' for guild '{}'", module, guild);
-			module = module.MTrim();
-
-			if (!GuildModules.ContainsKey(guild)) GuildModules[guild] = new List<string>();
-			var guildModules = GuildModules[guild];
-
-			if (!guildModules.Contains(module))
-				throw new Exception("module not loaded");
-			if (SystemModules.Any(entry => entry.Name.MTrim().Equals(module)))
-				throw new Exception("cannot unload a system module");
-
-			var instance = ModuleInstances[module];
-			if (!instance.TryUnload(guild, out var failReason))
-				throw new Exception($"Failed to unload module: {failReason}");
-
-			instance.OnUnload(guild);
-			await CommandHelper.WipeGuildModuleCommand(guild, instance);
-			guildModules.Remove(module);
-			ModuleUsageCount[module] -= 1;
-
-			if (ModuleUsageCount[module] == 0)
-				HandleModuleDestroy(instance);
-			SaveLoadedModules();
-			HoardMain.Logger.LogInformation("Unload complete");
-		}
-
-		public static void HandleModuleDestroy(ModuleBase module)
-		{
-			HoardMain.Logger.LogInformation("Module({}) no longer loaded, destroying", module.GetType().Name);
-			var moduleName = module.GetType().Name.ToLower().Trim();
-			ModuleInstances.Remove(moduleName);
-			ModuleUsageCount.Remove(moduleName);
-		}
-
-		public static async Task LoadModule(ulong guild, string module)
-		{
-			HoardMain.Logger.LogInformation("Trying to load module '{}' for guild '{}'", module, guild);
-			module = module.MTrim();
-
-			if (!GuildModules.ContainsKey(guild)) GuildModules[guild] = new List<string>();
-			var guildModules = GuildModules[guild];
-
-			if (guildModules.Contains(module))
-				throw new Exception("Module is already loaded");
-
-			if (!ModuleTypes.ContainsKey(module))
-				throw new Exception("Module does not exist");
-
-			// if an instance doesn't exist, create one
-			if (!ModuleInstances.TryGetValue(module, out var instance))
-			{
-				HoardMain.Logger.LogInformation("Creating module {}", module);
-				ModuleUsageCount[module] = 0;
-				if (ModuleTypes[module]
-						.GetConstructor(new[] { typeof(string) })?
-						.Invoke(new object?[] { HoardMain.DataDirectory.CreateSubdirectory("config").CreateSubdirectory(module).FullName })
-					is not ModuleBase newInstance)
-					throw new Exception("Failed to find or invoke module constructor");
-
-				ModuleInstances[module] = instance = newInstance;
-			}
-
-			if (!instance.TryLoad(guild, out var failReason))
-				throw new Exception($"Module failed to load: {failReason}");
-			await CommandHelper.UpdateGuildModuleCommand(guild, instance);
-			instance.OnLoad(guild);
-
-			ModuleUsageCount[module] += 1;
-			guildModules.Add(module);
-			SaveLoadedModules();
-		}
-
-		static void SaveLoadedModules()
-		{
-			if (_restoring) return;
-			var store = Path.Join(HoardMain.DataDirectory.FullName, "loaded.xml");
-			if (File.Exists(store)) File.Delete(store);
-			using var writer = File.OpenWrite(store);
-			new DataContractSerializer(typeof(Dictionary<ulong, List<string>>)).WriteObject(writer, GuildModules);
-			writer.Dispose();
-		}
-
-		public static async Task RestoreModules()
-		{
-			if (_restoring) return; // already restoring
-
-			_restoring = true;
-
-			ModuleTypes.Clear();
-			LoadAssembly(Assembly.GetExecutingAssembly(), out _);
-
-			HoardMain.Logger.LogInformation("Restoring Modules");
-			foreach (var guild in HoardMain.DiscordClient.Guilds)
-				foreach (var systemModule in SystemModules)
-					try { await LoadModule(guild.Id, systemModule.Name.MTrim()); }
-					catch (Exception e) { HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", systemModule, e); }
-
-			foreach (var (guild, modules) in CheckLoadedModules())
-				foreach (var module in modules.Where(module => !SystemModules.Any(entry => entry.Name.MTrim().Equals(module))))
-					try { await LoadModule(guild, module); }
-					catch (Exception e) { HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", module, e); }
-			_restoring = false;
-		}
-
-		static Dictionary<ulong, List<string>> CheckLoadedModules()
-		{
-			var store = Path.Join(HoardMain.DataDirectory.FullName, "loaded.xml");
-			if (!File.Exists(store))
-				return new Dictionary<ulong, List<string>>();
-			using var reader = File.OpenRead(store);
-			return (new DataContractSerializer(typeof(Dictionary<ulong, List<string>>)).ReadObject(reader) as Dictionary<ulong, List<string>>)!;
-		}
-
-		internal static async Task DiscordClientOnUserLeft(SocketGuild arg1, SocketUser arg2)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (!GuildModules.TryGetValue(arg1.Id, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnUserLeft(arg1, arg2);
-		}
-
-		internal static async Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (!GuildModules.TryGetValue(socketGuildUser.Guild.Id, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnUserJoined(socketGuildUser);
-		}
-
-		internal static async Task DiscordClientOnUserUpdated(SocketUser arg1, SocketUser arg2)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (!GuildModules.TryGetValue(arg1.Id, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnUserUpdated((SocketGuildUser)arg1, (SocketGuildUser)arg2);
-		}
-
-		internal static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> cacheableMessage, SocketMessage socketMessage, ISocketMessageChannel socketMessageChannel)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (socketMessageChannel is not IGuildChannel guildChannel) return;
-			if (!cacheableMessage.HasValue) return;
-			if (cacheableMessage.Value.Author.IsBot) return;
-			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnMessageUpdated(cacheableMessage.Value, socketMessage, guildChannel);
-		}
-
-		internal static async Task DiscordClientOnMessageDeleted(Cacheable<IMessage, ulong> cacheable, Cacheable<IMessageChannel, ulong> cacheableChannel)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (!cacheable.HasValue || !cacheableChannel.HasValue || cacheableChannel.Value is not IGuildChannel guildChannel) return;
-			if (cacheable.Value.Author.IsBot) return;
-			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnMessageDeleted(cacheable.Value, guildChannel);
-		}
-
-		internal static async Task DiscordClientOnMessagesBulkDeleted(IReadOnlyCollection<Cacheable<IMessage, ulong>> cacheableMessages, Cacheable<IMessageChannel, ulong> cacheableChannel)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (!cacheableChannel.HasValue || cacheableChannel.Value is not IGuildChannel guildChannel) return;
-			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				foreach (var cacheableMessage in cacheableMessages
-					.Where(cacheableMessage => cacheableMessage.HasValue && !cacheableMessage.Value.Author.IsBot)
-					.Select(cacheableMessage => cacheableMessage.Value))
-					await module.DiscordClientOnMessageDeleted(cacheableMessage, guildChannel);
-		}
-
-		internal static async Task DiscordClientOnMessageReceived(IMessage message)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			// why is this needed?
-			await Task.Yield();
-			message = await message.Channel.GetMessageAsync(message.Id);
-
-			if (message.Channel is not IGuildChannel guildChannel) return;
-			if (message.Author.IsBot) return;
-			if (!GuildModules.TryGetValue(guildChannel.GuildId, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.DiscordClientOnMessageReceived(message);
-		}
-
-		internal static async Task JoinedGuild(SocketGuild guild)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			await guild.DeleteApplicationCommandsAsync();
-			foreach (var systemModule in SystemModules)
-				try { await LoadModule(guild.Id, systemModule.Name.MTrim()); }
-				catch (Exception e) { HoardMain.Logger.LogCritical("Failed to restore system module {}: {}", systemModule, e); }
-		}
-
-		internal static Task LeftGuild(SocketGuild guild)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return Task.CompletedTask;
-			if (!GuildModules.TryGetValue(guild.Id, out _)) return Task.CompletedTask;
-			GuildModules.Remove(guild.Id);
-			SaveLoadedModules();
-			return Task.CompletedTask;
-		}
-
-		internal static(string, Guid, string)? GetCompInfo(this SocketMessageComponent comp)
-		{
-			var componentId = comp.Data.CustomId;
-			if (!componentId.StartsWith("h/"))
-				return null;
-			try
-			{
-				var data = componentId[2..].Split("/");
-				var moduleId = data[0];
-				var compGuid = Guid.Parse(data[1]);
-				return (moduleId, compGuid, data[2..].Aggregate((s1, s2) => $"{s1}/{s2}"));
-			}
-			catch (Exception e)
-			{
-				HoardMain.Logger.LogWarning("Failed to parse component information: {}", e);
-				return null;
-			}
-		}
-
-		internal static async Task OnButton(SocketMessageComponent button)
-		{
-			var info = button.GetCompInfo();
-			if (!info.HasValue) return;
-			var (module, guid, id) = info.Value;
-
-			if (!IsModuleLoaded(button.GuildId!.Value, module))
-				return;
-			var instance = ModuleInstances[module];
-			try
-			{
-				if (instance.CheckButton(guid))
-					await instance.OnButton(button, id);
-				else
-					await button.RespondAsync("Button Interaction errored: `Invalid Button Guid`", ephemeral: true);
-			}
-			catch (Exception e)
-			{
-				await button.Channel.SendMessageAsync($"Button Interaction errored: {e.Message}");
-			}
-		}
-
-		internal static async Task OnMenu(SocketMessageComponent menu)
-		{
-			var info = menu.GetCompInfo();
-			if (!info.HasValue) return;
-			var (module, guid, id) = info.Value;
-
-			if (!IsModuleLoaded(menu.GuildId!.Value, module))
-				return;
-			var instance = ModuleInstances[module];
-			try
-			{
-				if (instance.CheckMenu(guid))
-					await instance.OnMenu(menu, id);
-				else
-					await menu.RespondAsync("Menu Interaction errored: `Invalid Menu Guid`", ephemeral: true);
-			}
-			catch (Exception e)
-			{
-				await menu.Channel.SendMessageAsync($"Menu Interaction errored: {e.Message}");
-			}
-		}
-
-		internal static async Task UserBanned(SocketUser user, SocketGuild guild)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (user.IsBot) return;
-			if (!GuildModules.TryGetValue(guild.Id, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.UserBanned(guild, user);
-		}
-		internal static async Task UserUnbanned(SocketUser user, SocketGuild guild)
-		{
-			if (HoardMain.HoardToken.IsCancellationRequested) return;
-			if (user.IsBot) return;
-			if (!GuildModules.TryGetValue(guild.Id, out var modules)) return;
-			foreach (var module in modules.Select(moduleID => ModuleInstances[moduleID]))
-				await module.UserUnbanned(guild, user);
 		}
 	}
 }
