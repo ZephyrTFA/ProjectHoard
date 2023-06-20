@@ -106,7 +106,6 @@ namespace Hoard2
 			}
 
 			await DiscordClient.SetStatusAsync(UserStatus.DoNotDisturb);
-			await DiscordClient.CurrentUser.ModifyAsync(properties => properties.Username = "Project Hoard");
 
 			ModuleHelper.ModuleDataStorageDirectory = DataDirectory.CreateSubdirectory("module_data");
 			ModuleHelper.CacheAssembly(Assembly.GetExecutingAssembly());
@@ -122,9 +121,7 @@ namespace Hoard2
 
 		public static async Task Shutdown()
 		{
-			if (DiscordClient.ConnectionState != ConnectionState.Connected)
-				return;
-			await DiscordClient.SetStatusAsync(UserStatus.Offline);
+			await DiscordClient.SetStatusAsync(UserStatus.Invisible);
 			await CommandHelper.ClearCommandsForShutdown();
 			await DiscordClient.StopAsync();
 		}

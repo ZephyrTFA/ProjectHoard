@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Net.Converters;
 using Discord.WebSocket;
 
 using Hoard2.Util;
@@ -11,8 +12,8 @@ namespace Hoard2.Module.Builtin.Afterglow
 
 		public override List<Type> GetConfigKnownTypes() => new List<Type>
 		{
+			typeof(List<AgeCheckInformation>),
 			typeof(AgeCheckInformation),
-			typeof(DateTime),
 		};
 
 		List<AgeCheckInformation> GetVerifications(ulong guild) => GuildConfig(guild).Get("age-checks", new List<AgeCheckInformation>())!;
@@ -72,7 +73,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 			{
 				Verified = user.Id,
 				Verifier = command.User.Id,
-				When = DateTime.Now,
+				When = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
 				AgeChecked = ageChecked,
 			};
 			checkStore.Add(aci);
@@ -93,7 +94,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 				return;
 			}
 
-			await command.SendOrModifyOriginalResponse($"{user.Mention} was verified{(verifyEntry.AgeChecked ? " and age checked" : "")} by <@{verifyEntry.Verifier}> at `{verifyEntry.When:G}`.", AllowedMentions.None);
+			await command.SendOrModifyOriginalResponse($"{user.Mention} was verified{(verifyEntry.AgeChecked ? " and age checked" : "")} by <@{verifyEntry.Verifier}>(<t:{verifyEntry.When}:R>).", AllowedMentions.None);
 		}
 
 		public class AgeCheckInformation
@@ -102,7 +103,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 
 			public ulong Verifier { get; init; }
 
-			public DateTime When { get; init; }
+			public long When { get; init; }
 
 			public bool AgeChecked { get; init; }
 		}

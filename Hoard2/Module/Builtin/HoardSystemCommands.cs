@@ -40,6 +40,22 @@ namespace Hoard2.Module.Builtin
 			HoardMain.StopWorker();
 		}
 
+		[ModuleCommand]
+		public static async Task ChangeUsername(SocketSlashCommand command, string username)
+		{
+			if (command.User.Id is not 946283057915232337)
+			{
+				await command.RespondAsync("Who are you?", ephemeral: true);
+				return;
+			}
+
+			await HoardMain.DiscordClient.CurrentUser.ModifyAsync(props =>
+			{
+				props.Username = username;
+			});
+			await command.RespondAsync("Updated");
+		}
+
 		public override bool TryLoad(ulong guild, out string reason)
 		{
 			reason = "not an operator guild";
