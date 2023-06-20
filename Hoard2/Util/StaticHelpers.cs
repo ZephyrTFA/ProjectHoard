@@ -36,7 +36,7 @@ namespace Hoard2.Util
 
 			if (type == typeof(string))
 				return ApplicationCommandOptionType.String;
-			if (type == typeof(int))
+			if (type == typeof(int) || type == typeof(long))
 				return ApplicationCommandOptionType.Integer;
 			if (type == typeof(IUser))
 				return ApplicationCommandOptionType.User;
