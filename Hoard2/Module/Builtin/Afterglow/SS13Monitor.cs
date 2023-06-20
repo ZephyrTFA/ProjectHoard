@@ -124,7 +124,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 							$"Round Length: `{jsonDict["round_duration"]}`\n" +
 							$"Round:        `{(jsonDict.TryGetValue("round_id", out var roundId) ? roundId : "!NULL!")}`\n" +
 							$"TIDI:         `{jsonDict["time_dilation_current"]}% ({jsonDict["time_dilation_avg"]}%)`\n" +
-							$"Next update <t:{DateTimeOffset.UtcNow.Add(info.UpdatePeriod).ToUnixTimeSeconds()}:R>\n")
+							$"Next update <t:{DateTimeOffset.UtcNow.Add(info.UpdatePeriod).ToUnixTimeSeconds() + 2}:R>\n")
 						.Build();
 				});
 			}
