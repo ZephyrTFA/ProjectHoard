@@ -13,7 +13,11 @@ namespace Hoard2.Module.Builtin.Afterglow
 	{
 		Dictionary<ulong, Task> _monitorThreads = new Dictionary<ulong, Task>();
 
-		public SS13Monitor(string configPath) : base(configPath) { }
+		public SS13Monitor(string configPath) : base(configPath)
+		{
+			foreach (var guild in HoardMain.DiscordClient.Guilds)
+				StartMonitorTask(guild.Id);
+		}
 
 		public override List<Type> GetConfigKnownTypes() => new List<Type>
 		{
@@ -192,6 +196,26 @@ namespace Hoard2.Module.Builtin.Afterglow
 		{
 			StartMonitorTask(command.GuildId!.Value);
 			await command.RespondAsync("Forced an update");
+		}
+
+		[ModuleCommand(GuildPermission.Administrator)]
+		[CommandGuildOnly]
+		public async Task SetMonitorChannel(SocketSlashCommand command, IChannel channel)
+		{
+			if (channel is not IMessageChannel)
+			{
+				await command.RespondAsync("Must be a message channel!");
+				return;
+			}
+
+			var config = GuildConfig(command.GuildId!.Value);
+			var current = config.Get<ulong>("mon-channel");
+			var curMessage = config.Get<ulong>("mon-message");
+			if (current is not 0 && curMessage is not 0)
+				await ((IMessageChannel)await HoardMain.DiscordClient.GetChannelAsync(current)).DeleteMessageAsync(current);
+			GuildConfig(command.GuildId!.Value).Set("mon-channel", channel.Id);
+			await command.RespondAsync("Set the channel");
+			StartMonitorTask(command.GuildId.Value);
 		}
 
 		public class ServerInformation
