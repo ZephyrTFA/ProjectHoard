@@ -25,12 +25,14 @@ namespace Hoard2.Module.Builtin.Afterglow
 			var config = GuildConfig(user.Guild.Id);
 			var verifiedRole = config.Get<ulong>("role-verify");
 			var ageCheckRole = config.Get<ulong>("role-age-check");
+			var toAdd = new List<ulong>();
 
 			var existing = user.Roles.Select(role => role.Id).ToList();
 			if (!existing.Contains(verifiedRole))
-				await user.AddRoleAsync(verifiedRole);
+				toAdd.Add(verifiedRole);
 			if (ageChecked && !existing.Contains(ageCheckRole))
-				await user.AddRoleAsync(ageCheckRole);
+				toAdd.Add(ageCheckRole);
+			await user.AddRolesAsync(toAdd);
 		}
 
 		[ModuleCommand(GuildPermission.Administrator)]
