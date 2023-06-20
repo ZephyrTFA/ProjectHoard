@@ -49,7 +49,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 			await command.RespondAsync($"Updated the age check role to <@&{role.Id}>.", allowedMentions: AllowedMentions.None);
 		}
 
-		[ModuleCommand]
+		[ModuleCommand(GuildPermission.ManageRoles)]
 		[CommandGuildOnly]
 		public async Task VerifyMember(SocketSlashCommand command, IUser user, bool ageChecked = false)
 		{
@@ -83,7 +83,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 			await ApplyVerificationRolesTo((SocketGuildUser)user, ageChecked);
 		}
 
-		[ModuleCommand]
+		[ModuleCommand(GuildPermission.ManageRoles)]
 		[CommandGuildOnly]
 		public async Task GetVerifiedStatus(SocketSlashCommand command, IUser user)
 		{
