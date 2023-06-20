@@ -11,7 +11,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 {
 	public class SS13Monitor : ModuleBase
 	{
-		Dictionary<ulong, Task> _monitorThreads = new Dictionary<ulong, Task>();
+		Dictionary<ulong, (Task, CancellationTokenSource)> _monitorThreads = new Dictionary<ulong, (Task, CancellationTokenSource)>();
 
 		public SS13Monitor(string configPath) : base(configPath)
 		{
@@ -31,7 +31,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 
 		void StartMonitorTask(ulong guild)
 		{
-			async Task DoMonitorThread()
+			async Task DoMonitorThread(CancellationToken token)
 			{
 				while (true)
 				{
@@ -42,7 +42,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 					var client = new TopicClient(new SocketParameters());
 					try
 					{
-						var resp = await client.SendTopic(serverInfo.Address, $"?status&key={serverInfo.CommKey}", serverInfo.Port);
+						var resp = await client.SendTopic(serverInfo.Address, $"?status&key={serverInfo.CommKey}", serverInfo.Port, token);
 						await UpdateMonitorMessage(guild, resp, serverInfo);
 					}
 					catch
@@ -51,12 +51,13 @@ namespace Hoard2.Module.Builtin.Afterglow
 						await UpdateMonitorMessage(guild, null, serverInfo);
 					}
 
-					await Task.Delay(serverInfo.UpdatePeriod);
+					await Task.Delay(serverInfo.UpdatePeriod, token);
 				}
 			}
 			if (_monitorThreads.TryGetValue(guild, out var thread))
-				thread.Dispose();
-			_monitorThreads[guild] = DoMonitorThread();
+				thread.Item2.Cancel();
+			var source = new CancellationTokenSource();
+			_monitorThreads[guild] = (DoMonitorThread(source.Token), source);
 		}
 
 		public async Task<IMessageChannel> GetMonitorChannel(ulong guild) => (IMessageChannel)
