@@ -42,7 +42,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 					var client = new TopicClient(new SocketParameters());
 					try
 					{
-						var resp = await client.SendTopic(serverInfo.Address, $"?status&key={serverInfo.CommKey}", serverInfo.Port, token);
+						var resp = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}", serverInfo.Port, token);
 						await UpdateMonitorMessage(guild, resp, serverInfo);
 					}
 					catch
