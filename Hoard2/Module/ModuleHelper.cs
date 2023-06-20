@@ -33,6 +33,8 @@ namespace Hoard2.Module
 			typeof(UserDataHelper),
 		};
 
+		static bool _doForAllWorking;
+
 		public static bool IsModuleLoaded(ulong guild, Type moduleType)
 		{
 			if (!LoadedMap.TryGetValue(guild, out var map))
@@ -147,8 +149,6 @@ namespace Hoard2.Module
 		{
 			TypeMap.Clear();
 		}
-
-		static bool _doForAllWorking;
 		static async Task DoForAll(ulong matchGuild, Func<ModuleBase, Task> action)
 		{
 			while (_doForAllWorking)
@@ -173,10 +173,7 @@ namespace Hoard2.Module
 
 		public static async Task DiscordClientOnMessageReceived(SocketMessage message)
 		{
-			await DoForAll(message.Channel.GetGuildId(), async module =>
-			{
-				await module.DiscordClientOnMessageReceived(message);
-			});
+			await DoForAll(message.Channel.GetGuildId(), async module => await module.DiscordClientOnMessageReceived(message));
 		}
 
 		public static async Task DiscordClientOnMessageDeleted(Cacheable<IMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel)
@@ -184,104 +181,44 @@ namespace Hoard2.Module
 			if (!message.HasValue || message.Value is not SocketMessage socketMessage)
 				return;
 			var channelActual = await channel.GetOrDownloadAsync();
-			await DoForAll(channelActual.GetGuildId(), async module =>
-			{
-				await module.DiscordClientOnMessageDeleted(socketMessage, channelActual);
-			});
+			await DoForAll(channelActual.GetGuildId(), async module => await module.DiscordClientOnMessageDeleted(socketMessage, channelActual));
 		}
 
 		public static async Task DiscordClientOnMessagesBulkDeleted(IReadOnlyCollection<Cacheable<IMessage, ulong>> messages, Cacheable<IMessageChannel, ulong> channel)
 		{
 			var messagesActual = messages.Where(message => message.HasValue).Select(message => (SocketMessage)message.Value).ToList().AsReadOnly();
 			var channelActual = (ISocketMessageChannel)await channel.GetOrDownloadAsync();
-			await DoForAll(channelActual.GetGuildId(), async module =>
-			{
-				await module.DiscordClientOnMessagesBulkDeleted(messagesActual, channelActual);
-			});
+			await DoForAll(channelActual.GetGuildId(), async module => await module.DiscordClientOnMessagesBulkDeleted(messagesActual, channelActual));
 		}
 
 		public static async Task DiscordClientOnMessageUpdated(Cacheable<IMessage, ulong> oldMessage, SocketMessage newMessage, ISocketMessageChannel channel)
 		{
 			if (!oldMessage.HasValue || oldMessage.Value is not SocketMessage socketMessage)
 				return;
-			await DoForAll(channel.GetGuildId(), async module =>
-			{
-				await module.DiscordClientOnMessageUpdated(socketMessage, newMessage, channel);
-			});
+			await DoForAll(channel.GetGuildId(), async module => await module.DiscordClientOnMessageUpdated(socketMessage, newMessage, channel));
 		}
 
-		public static async Task DiscordClientOnUserJoined(SocketGuildUser user)
-		{
-			await DoForAll(user.Guild.Id, async module =>
-			{
-				await module.DiscordClientOnUserJoined(user);
-			});
-		}
+		public static async Task DiscordClientOnUserJoined(SocketGuildUser user) => await DoForAll(user.Guild.Id, async module => await module.DiscordClientOnUserJoined(user));
 
-		public static async Task DiscordClientOnUserLeft(SocketGuild guild, SocketUser user)
-		{
-			await DoForAll(guild.Id, async module =>
-			{
-				await module.DiscordClientOnUserLeft(guild, user);
-			});
-		}
+		public static async Task DiscordClientOnUserLeft(SocketGuild guild, SocketUser user) => await DoForAll(guild.Id, async module => await module.DiscordClientOnUserLeft(guild, user));
 
 		public static async Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser)
 		{
 			var guildId = newUser is SocketGuildUser guildUser ? guildUser.Guild.Id : 0;
-			await DoForAll(guildId, async module =>
-			{
-				await module.DiscordClientOnUserUpdated(oldUser, newUser);
-			});
+			await DoForAll(guildId, async module => await module.DiscordClientOnUserUpdated(oldUser, newUser));
 		}
 
-		public static async Task DiscordClientOnJoinedGuild(SocketGuild guild)
-		{
-			await DoForAll(0, async module =>
-			{
-				await module.DiscordClientOnJoinedGuild(guild);
-			});
-		}
+		public static async Task DiscordClientOnJoinedGuild(SocketGuild guild) => await DoForAll(0, async module => await module.DiscordClientOnJoinedGuild(guild));
 
-		public static async Task DiscordClientOnLeftGuild(SocketGuild guild)
-		{
-			await DoForAll(0, async module =>
-			{
-				await module.DiscordClientOnLeftGuild(guild);
-			});
-		}
+		public static async Task DiscordClientOnLeftGuild(SocketGuild guild) => await DoForAll(0, async module => await module.DiscordClientOnLeftGuild(guild));
 
-		public static async Task DiscordClientOnUserBanned(SocketUser user, SocketGuild guild)
-		{
-			await DoForAll(guild.Id, async module =>
-			{
-				await module.DiscordClientOnUserBanned(user, guild);
-			});
-		}
+		public static async Task DiscordClientOnUserBanned(SocketUser user, SocketGuild guild) => await DoForAll(guild.Id, async module => await module.DiscordClientOnUserBanned(user, guild));
 
-		public static async Task DiscordClientOnUserUnbanned(SocketUser user, SocketGuild guild)
-		{
-			await DoForAll(guild.Id, async module =>
-			{
-				await module.DiscordClientOnUserUnbanned(user, guild);
-			});
-		}
+		public static async Task DiscordClientOnUserUnbanned(SocketUser user, SocketGuild guild) => await DoForAll(guild.Id, async module => await module.DiscordClientOnUserUnbanned(user, guild));
 
-		public static async Task DiscordClientOnInviteCreated(SocketInvite invite)
-		{
-			await DoForAll(invite.Guild.Id, async module =>
-			{
-				await module.DiscordClientOnInviteCreated(invite);
-			});
-		}
+		public static async Task DiscordClientOnInviteCreated(SocketInvite invite) => await DoForAll(invite.Guild.Id, async module => await module.DiscordClientOnInviteCreated(invite));
 
-		public static async Task DiscordClientOnInviteDeleted(SocketGuildChannel oldInviteChannel, string oldInviteUrl)
-		{
-			await DoForAll(oldInviteChannel.GetGuildId(), async module =>
-			{
-				await module.DiscordClientOnInviteDeleted(oldInviteChannel, oldInviteUrl);
-			});
-		}
+		public static async Task DiscordClientOnInviteDeleted(SocketGuildChannel oldInviteChannel, string oldInviteUrl) => await DoForAll(oldInviteChannel.GetGuildId(), async module => await module.DiscordClientOnInviteDeleted(oldInviteChannel, oldInviteUrl));
 
 		static Dictionary<ulong, string[]>? GetModulesToRestore()
 		{
@@ -298,11 +235,11 @@ namespace Hoard2.Module
 			var storePath = Path.Join(ModuleDataStorageDirectory.FullName, "module_persistence_map.xml");
 			using var store = new MemoryStream();
 			var serializer = new DataContractSerializer(typeof(Dictionary<ulong, string[]>));
-			
+
 			var writing = new Dictionary<ulong, string[]>();
 			foreach (var (guild, moduleList) in LoadedMap)
 				writing[guild] = moduleList.Select(module => module.GetNormalizedRepresentation()).ToArray();
-			
+
 			serializer.WriteObject(store, writing);
 			File.WriteAllBytes(storePath, store.ToArray());
 		}

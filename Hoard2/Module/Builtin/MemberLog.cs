@@ -181,7 +181,7 @@ namespace Hoard2.Module.Builtin
 			if (GuildConfig(socketGuild.Id).Get<ulong?>(ChannelLeave) is not { } channelId)
 				return;
 
-			if (await socketGuild.GetBanAsync(socketUser) is not null)
+			if (await socketGuild.GetBanAsync(socketUser) is { })
 				return;
 
 			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);

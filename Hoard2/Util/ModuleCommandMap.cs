@@ -10,6 +10,12 @@ namespace Hoard2.Util
 {
 	public class ParameterInformation
 	{
+		public readonly object? Default;
+		public readonly string Desc;
+
+		public readonly string Name;
+		public readonly bool Required;
+		public readonly ApplicationCommandOptionType Type;
 		public ParameterInformation(string name, string desc, ApplicationCommandOptionType type, object? @default, bool required)
 		{
 			Name = name;
@@ -18,13 +24,6 @@ namespace Hoard2.Util
 			Default = @default;
 			Required = required;
 		}
-
-		public readonly string Name;
-		public readonly string Desc;
-		public readonly ApplicationCommandOptionType Type;
-
-		public readonly object? Default;
-		public readonly bool Required;
 
 		public SlashCommandOptionBuilder IntoBuilder()
 		{
@@ -47,13 +46,20 @@ namespace Hoard2.Util
 				desc,
 				parameterInfo.ParameterType.ToDiscordCommandType(),
 				parameterInfo.DefaultValue,
-				required: !parameterInfo.ParameterType.IsNullableType()
+				!parameterInfo.ParameterType.IsNullableType()
 			);
 		}
 	}
 
 	public class ModuleCommandInformation
 	{
+		public readonly MethodInfo Caller;
+		public readonly string Desc;
+		public readonly bool GuildOnly, DmOnly;
+
+		public readonly string Name;
+		public readonly ImmutableList<ParameterInformation> Parameters;
+		public readonly GuildPermission? Permission;
 		ModuleCommandInformation(string name, string desc, ImmutableList<ParameterInformation> parameters, MethodInfo caller, GuildPermission? permissions, bool guildOnly, bool dmOnly)
 		{
 			Name = name;
@@ -64,13 +70,6 @@ namespace Hoard2.Util
 			GuildOnly = guildOnly;
 			DmOnly = dmOnly;
 		}
-
-		public readonly string Name;
-		public readonly string Desc;
-		public readonly GuildPermission? Permission;
-		public readonly ImmutableList<ParameterInformation> Parameters;
-		public readonly MethodInfo Caller;
-		public readonly bool GuildOnly, DmOnly;
 
 		public SlashCommandOptionBuilder IntoBuilder()
 		{
@@ -103,14 +102,14 @@ namespace Hoard2.Util
 
 	public class ModuleCommandMap
 	{
+		public readonly ImmutableList<ModuleCommandInformation> Commands;
+
+		public readonly Type Module;
 		ModuleCommandMap(Type module, ImmutableList<ModuleCommandInformation> commands)
 		{
 			Module = module;
 			Commands = commands;
 		}
-
-		public readonly Type Module;
-		public readonly ImmutableList<ModuleCommandInformation> Commands;
 
 		public SlashCommandOptionBuilder IntoBuilder()
 		{

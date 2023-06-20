@@ -50,10 +50,7 @@ namespace Hoard2.Module
 				await RefreshCommands(guildId);
 		}
 
-		public static Task DiscordClientOnButtonExecuted(SocketMessageComponent button)
-		{
-			throw new NotImplementedException();
-		}
+		public static Task DiscordClientOnButtonExecuted(SocketMessageComponent button) => throw new NotImplementedException();
 
 		public static async Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand slashCommand)
 		{
@@ -135,9 +132,6 @@ namespace Hoard2.Module
 			}
 		}
 
-		public static Task DiscordClientOnSelectMenuExecuted(SocketMessageComponent menu)
-		{
-			throw new NotImplementedException();
-		}
+		public static Task DiscordClientOnSelectMenuExecuted(SocketMessageComponent menu) => throw new NotImplementedException();
 	}
 }

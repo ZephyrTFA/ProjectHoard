@@ -45,10 +45,7 @@ namespace Hoard2.Util
 		}
 
 
-		public static string GetNormalizedRepresentation(this Type moduleType)
-		{
-			return GetNormalizedRepresentation(moduleType.Name);
-		}
+		public static string GetNormalizedRepresentation(this Type moduleType) => GetNormalizedRepresentation(moduleType.Name);
 
 		public static string GetNormalizedRepresentation(this string moduleName)
 		{

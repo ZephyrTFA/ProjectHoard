@@ -35,7 +35,7 @@ namespace Hoard2.Module
 		public bool TryGet<T>(string key, [NotNullWhen(true)] out T? value)
 		{
 			value = Get<T>(key);
-			return value is not null;
+			return value is { };
 		}
 
 		public bool Has(string key) => _configData.ContainsKey(key);

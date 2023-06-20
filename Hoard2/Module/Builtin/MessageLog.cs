@@ -64,7 +64,7 @@ namespace Hoard2.Module.Builtin
 			if (!GuildConfig(guild).TryGet("log-channel", out ulong channelId))
 				return false;
 			channel = HoardMain.DiscordClient.GetChannelAsync(channelId).Preserve().GetAwaiter().GetResult() as ISocketMessageChannel;
-			return channel is not null;
+			return channel is { };
 		}
 
 		[ModuleCommand(GuildPermission.Administrator)]
@@ -129,7 +129,7 @@ namespace Hoard2.Module.Builtin
 			var guildInstance = HoardMain.DiscordClient.GetGuild(guild);
 			return ignored
 				.Select(ignoredCategory => guildInstance.GetCategoryChannel(ignoredCategory))
-				.Where(value => value is not null)
+				.Where(value => value is { })
 				.Any(category => category.Channels.Any(inner => inner.Id == channel));
 		}
 
