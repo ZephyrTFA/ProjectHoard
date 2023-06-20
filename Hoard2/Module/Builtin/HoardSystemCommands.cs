@@ -4,6 +4,12 @@ namespace Hoard2.Module.Builtin
 {
 	public class HoardSystemCommands : ModuleBase
 	{
+		public readonly IReadOnlyList<ulong> OperatorGuilds = new List<ulong>
+		{
+			1106635532013940836,
+			837744059291533392,
+		}.AsReadOnly();
+
 		public HoardSystemCommands(string configPath) : base(configPath) { }
 
 		[ModuleCommand]
@@ -37,7 +43,7 @@ namespace Hoard2.Module.Builtin
 		public override bool TryLoad(ulong guild, out string reason)
 		{
 			reason = "not an operator guild";
-			return guild is 837744059291533392 or 1106635532013940836;
+			return OperatorGuilds.Contains(guild);
 		}
 	}
 }
