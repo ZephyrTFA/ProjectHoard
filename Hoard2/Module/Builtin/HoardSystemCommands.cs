@@ -37,7 +37,7 @@ namespace Hoard2.Module.Builtin
 		public override bool TryLoad(ulong guild, out string reason)
 		{
 			reason = "not an operator guild";
-			return guild is 837744059291533392;
+			return guild is 837744059291533392 or 1106635532013940836;
 		}
 	}
 }
