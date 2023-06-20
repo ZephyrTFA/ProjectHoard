@@ -115,7 +115,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 				}
 				
 				var durationString = jsonDict.TryGetValue("round_duration", out var durationSeconds) && durationSeconds is { } ?
-					TimeSpan.FromSeconds(Double.Parse(durationSeconds)).ToString("hh:mm:ss") : "!NULL!";
+					TimeSpan.FromSeconds(Double.Parse(durationSeconds)).ToString("hh\\:mm\\:ss") : "!NULL!";
 				await message.ModifyAsync(props =>
 				{
 					props.Content = String.Empty;
