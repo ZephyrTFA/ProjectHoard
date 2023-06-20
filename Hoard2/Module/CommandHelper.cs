@@ -30,6 +30,16 @@ namespace Hoard2.Module
 			return builder;
 		}
 
+		public static async Task ClearCommandsForShutdown()
+		{
+			foreach (var socketApplicationCommand in await HoardMain.DiscordClient.GetGlobalApplicationCommandsAsync())
+				await socketApplicationCommand.DeleteAsync();
+
+			foreach (var guild in HoardMain.DiscordClient.Guilds.Select(guild => HoardMain.DiscordClient.GetGuild(guild.Id)))
+				foreach (var guildCommand in await guild.GetApplicationCommandsAsync())
+					await guildCommand.DeleteAsync();
+		}
+		
 		public static async Task RefreshCommands(ulong target = 0)
 		{
 			if (target is not 0)

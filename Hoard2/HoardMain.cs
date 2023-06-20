@@ -125,6 +125,7 @@ namespace Hoard2
 			if (DiscordClient.ConnectionState != ConnectionState.Connected)
 				return;
 			await DiscordClient.SetStatusAsync(UserStatus.Offline);
+			await CommandHelper.ClearCommandsForShutdown();
 			await DiscordClient.StopAsync();
 		}
 
