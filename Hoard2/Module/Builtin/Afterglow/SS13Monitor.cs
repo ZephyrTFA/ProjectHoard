@@ -39,7 +39,13 @@ namespace Hoard2.Module.Builtin.Afterglow
 					if (!serverInfo.IsValid)
 						return;
 
-					var client = new TopicClient(new SocketParameters());
+					var client = new TopicClient(new SocketParameters
+					{
+						ConnectTimeout = TimeSpan.FromSeconds(5),
+						DisconnectTimeout = TimeSpan.FromSeconds(5),
+						ReceiveTimeout = TimeSpan.FromSeconds(5),
+						SendTimeout = TimeSpan.FromSeconds(5),
+					});
 					try
 					{
 						var resp = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}", serverInfo.Port, token);
@@ -82,7 +88,6 @@ namespace Hoard2.Module.Builtin.Afterglow
 			var message = await GetMonitorMessage(guild);
 			var builder = new EmbedBuilder()
 				.WithTitle($"Status - {info.Name}")
-				.WithFooter($"Next update in <t:{DateTimeOffset.UtcNow.Add(info.UpdatePeriod).ToUnixTimeSeconds()}:R>")
 				.WithTimestamp(DateTimeOffset.UtcNow);
 			if (statusResponse is null)
 			{
@@ -97,7 +102,19 @@ namespace Hoard2.Module.Builtin.Afterglow
 			}
 			else
 			{
-				var jsonDict = (Dictionary<string, string>)JsonConvert.DeserializeObject(statusResponse.StringData!, typeof(Dictionary<string, string>))!;
+				var stringResponse = statusResponse.StringData;
+				if (stringResponse is null || stringResponse.ToLower().Equals("rate limited."))
+					return;
+				var strings = statusResponse.StringData!.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+				var jsonDict = new Dictionary<string, string?>();
+				foreach (var entry in strings)
+				{
+					if (entry.Contains('='))
+					{
+						var values = entry.Split('=');
+						jsonDict[values[0]] = values[1];
+					}
+				}
 				await message.ModifyAsync(props =>
 				{
 					props.Content = String.Empty;
@@ -105,9 +122,9 @@ namespace Hoard2.Module.Builtin.Afterglow
 						.WithDescription($"" +
 							$"Players:      `{jsonDict["players"]}`\n" +
 							$"Round Length: `{jsonDict["round_duration"]}`\n" +
-							$"Round:        `{jsonDict["round_id"]}`" +
-							$"TIDI:         `{jsonDict["time_dilation_current"]}% ({jsonDict["time_dilation_avg"]}%)`" +
-							$"[Join](byond://{info.Address}:{info.Port}/)")
+							$"Round:        `{(jsonDict.TryGetValue("round_id", out var roundId) ? roundId : "!NULL!")}`\n" +
+							$"TIDI:         `{jsonDict["time_dilation_current"]}% ({jsonDict["time_dilation_avg"]}%)`\n" +
+							$"Next update <t:{DateTimeOffset.UtcNow.Add(info.UpdatePeriod).ToUnixTimeSeconds()}:R>\n")
 						.Build();
 				});
 			}
@@ -209,11 +226,6 @@ namespace Hoard2.Module.Builtin.Afterglow
 				return;
 			}
 
-			var config = GuildConfig(command.GuildId!.Value);
-			var current = config.Get<ulong>("mon-channel");
-			var curMessage = config.Get<ulong>("mon-message");
-			if (current is not 0 && curMessage is not 0)
-				await ((IMessageChannel)await HoardMain.DiscordClient.GetChannelAsync(current)).DeleteMessageAsync(current);
 			GuildConfig(command.GuildId!.Value).Set("mon-channel", channel.Id);
 			await command.RespondAsync("Set the channel");
 			StartMonitorTask(command.GuildId.Value);
