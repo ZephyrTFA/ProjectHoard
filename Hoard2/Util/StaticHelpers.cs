@@ -42,6 +42,8 @@ namespace Hoard2.Util
 				return ApplicationCommandOptionType.User;
 			if (type == typeof(IChannel) || type == typeof(IMessageChannel))
 				return ApplicationCommandOptionType.Channel;
+			if (type == typeof(IRole))
+				return ApplicationCommandOptionType.Role;
 
 			throw new ArgumentException($"cannot convert {type} to option type", nameof(type));
 		}

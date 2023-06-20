@@ -43,7 +43,7 @@ namespace Hoard2.Module.Builtin
 					break;
 
 				case ModuleLoadResult.LoadErrored:
-					await command.SendOrModifyOriginalResponse($"Failed to load module `{moduleID}`:\n{exception}");
+					await command.SendOrModifyOriginalResponse($"Failed to load module `{moduleID}`:\n```\n{exception}\n```");
 					break;
 
 				case ModuleLoadResult.LoadFailed:
