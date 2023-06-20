@@ -5,8 +5,6 @@ using Byond.TopicSender;
 using Discord;
 using Discord.WebSocket;
 
-using Newtonsoft.Json;
-
 namespace Hoard2.Module.Builtin.Afterglow
 {
 	public class SS13Monitor : ModuleBase
@@ -115,15 +113,18 @@ namespace Hoard2.Module.Builtin.Afterglow
 						jsonDict[values[0]] = values[1];
 					}
 				}
+				
+				var durationString = jsonDict.TryGetValue("round_duration", out var durationSeconds) && durationSeconds is { } ?
+					TimeSpan.FromSeconds(Double.Parse(durationSeconds)).ToString("hh:mm:ss") : "!NULL!";
 				await message.ModifyAsync(props =>
 				{
 					props.Content = String.Empty;
 					props.Embed = builder
 						.WithDescription($"" +
-							$"Players:      `{jsonDict["players"]}`\n" +
-							$"Round Length: `{jsonDict["round_duration"]}`\n" +
+							$"Players:      `{jsonDict["players"] ?? "!NULL!"}`\n" +
+							$"Round Length: `{durationString}`\n" +
 							$"Round:        `{(jsonDict.TryGetValue("round_id", out var roundId) ? roundId : "!NULL!")}`\n" +
-							$"TIDI:         `{jsonDict["time_dilation_current"]}% ({jsonDict["time_dilation_avg"]}%)`\n" +
+							$"TIDI:         `{jsonDict["time_dilation_current"] ?? "!NULL!"}% ({jsonDict["time_dilation_avg"] ?? "!NULL!"}%)`\n" +
 							$"Next update <t:{DateTimeOffset.UtcNow.Add(info.UpdatePeriod).ToUnixTimeSeconds() + 2}:R>\n")
 						.Build();
 				});
