@@ -14,15 +14,17 @@ namespace Hoard2.Util
 			return guildChannel.GuildId;
 		}
 
-		public static async Task SendOrModifyOriginalResponse(this SocketSlashCommand command, string message)
+		public static async Task SendOrModifyOriginalResponse(this SocketSlashCommand command, string message, AllowedMentions? allowedMentions = null)
 		{
 			if (command.HasResponded)
 				await command.ModifyOriginalResponseAsync(props =>
 				{
 					props.Content = message;
+					if (allowedMentions is { })
+						props.AllowedMentions = allowedMentions;
 				});
 			else
-				await command.RespondAsync(message);
+				await command.RespondAsync(message, allowedMentions: allowedMentions);
 		}
 
 		public static bool IsNullableType(this Type type) => Nullable.GetUnderlyingType(type) != null;

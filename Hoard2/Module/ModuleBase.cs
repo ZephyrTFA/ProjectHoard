@@ -29,9 +29,9 @@ namespace Hoard2.Module
 
 		public string GetModuleName() => GetType().GetNormalizedRepresentation();
 
-		public ModuleConfig GuildConfig(ulong guild) => new ModuleConfig(Path.Join(_configDirectory, $"{guild}.xml"));
+		public ModuleConfig GuildConfig(ulong guild) => new ModuleConfig(Path.Join(_configDirectory, $"{guild}.xml"), GetConfigKnownTypes());
 
-		public ModuleConfig CustomConfig(string key) => new ModuleConfig(Path.Join(_configDirectory, "custom", key));
+		public ModuleConfig CustomConfig(string key) => new ModuleConfig(Path.Join(_configDirectory, "custom", key), GetConfigKnownTypes());
 
 		public virtual Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand socketSlashCommand) => Task.CompletedTask;
 
@@ -68,6 +68,8 @@ namespace Hoard2.Module
 			reason = String.Empty;
 			return true;
 		}
+
+		public virtual List<Type> GetConfigKnownTypes() => new List<Type>();
 
 		public virtual void OnLoad(ulong guild) { }
 

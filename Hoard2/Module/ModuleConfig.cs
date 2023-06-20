@@ -5,7 +5,7 @@ namespace Hoard2.Module
 {
 	public class ModuleConfig
 	{
-		public static readonly Type[] KnownTypes =
+		public static readonly Type[] GlobalKnownTypes =
 		{
 			typeof(Dictionary<string, string>),
 			typeof(Dictionary<ulong, string>),
@@ -13,9 +13,13 @@ namespace Hoard2.Module
 			typeof(List<ulong>),
 		};
 
+		readonly List<Type> _moduleKnownTypes;
+
 		Dictionary<string, object> _configData = new Dictionary<string, object>();
-		public ModuleConfig(string filePath)
+		public ModuleConfig(string filePath, List<Type>? knownTypes = null)
 		{
+			_moduleKnownTypes = knownTypes ?? new List<Type>();
+
 			StoreInfo = new FileInfo(Path.GetFullPath(filePath));
 			if (!StoreInfo.Directory!.Exists)
 				StoreInfo.Directory.Create();
@@ -63,7 +67,7 @@ namespace Hoard2.Module
 		public void Save()
 		{
 			var memory = new MemoryStream();
-			var binary = new DataContractSerializer(typeof(Dictionary<string, object>), KnownTypes);
+			var binary = new DataContractSerializer(typeof(Dictionary<string, object>), GlobalKnownTypes.Concat(_moduleKnownTypes));
 			binary.WriteObject(memory, _configData);
 
 			if (StoreInfo.Exists)
@@ -78,7 +82,7 @@ namespace Hoard2.Module
 			if (!StoreInfo.Exists)
 				return;
 			using var reader = StoreInfo.OpenRead();
-			var binary = new DataContractSerializer(_configData.GetType(), KnownTypes);
+			var binary = new DataContractSerializer(_configData.GetType(), GlobalKnownTypes.Concat(_moduleKnownTypes));
 			var read = binary.ReadObject(reader);
 			_configData = (Dictionary<string, object>?)read ?? throw new IOException($"Failed to read config for {GetType().FullName}");
 		}

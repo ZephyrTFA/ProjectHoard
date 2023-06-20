@@ -39,7 +39,7 @@ namespace Hoard2.Module
 				foreach (var guildCommand in await guild.GetApplicationCommandsAsync())
 					await guildCommand.DeleteAsync();
 		}
-		
+
 		public static async Task RefreshCommands(ulong target = 0)
 		{
 			if (target is not 0)
