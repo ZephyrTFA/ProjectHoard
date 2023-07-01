@@ -118,7 +118,7 @@ namespace Hoard2.Module.Builtin
 				return;
 			}
 
-			var auditLogEntries = await guild.GetAuditLogsAsync(20, actionType: ActionType.Unban).FlattenAsync();
+			var auditLogEntries = await guild.GetAuditLogsAsync(20, actionType: ActionType.Ban).FlattenAsync();
 			var entry = auditLogEntries.FirstOrDefault(logEntry =>
 			{
 				var data = (UnbanAuditLogData)logEntry.Data;
