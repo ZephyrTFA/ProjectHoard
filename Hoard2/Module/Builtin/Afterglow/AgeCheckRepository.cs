@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Net.Converters;
 using Discord.WebSocket;
 
 using Hoard2.Util;

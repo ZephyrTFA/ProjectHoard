@@ -8,7 +8,7 @@ using Discord.WebSocket;
 
 using Hoard2.Util;
 
-namespace Hoard2.Module.Builtin
+namespace Hoard2.Module.Builtin.Moderation
 {
 	public class MessageLog : ModuleBase
 	{

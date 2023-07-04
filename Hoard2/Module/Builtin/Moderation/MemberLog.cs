@@ -4,7 +4,7 @@ using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
 
-namespace Hoard2.Module.Builtin
+namespace Hoard2.Module.Builtin.Moderation
 {
 	public class MemberLog : ModuleBase
 	{

@@ -5,7 +5,7 @@ using Byond.TopicSender;
 using Discord;
 using Discord.WebSocket;
 
-namespace Hoard2.Module.Builtin.Afterglow
+namespace Hoard2.Module.Builtin.SS13
 {
 	public class SS13Monitor : ModuleBase
 	{
@@ -113,7 +113,7 @@ namespace Hoard2.Module.Builtin.Afterglow
 						jsonDict[values[0]] = values[1];
 					}
 				}
-				
+
 				var durationString = jsonDict.TryGetValue("round_duration", out var durationSeconds) && durationSeconds is { } ?
 					TimeSpan.FromSeconds(Double.Parse(durationSeconds)).ToString("hh\\:mm\\:ss") : "!NULL!";
 				await message.ModifyAsync(props =>
