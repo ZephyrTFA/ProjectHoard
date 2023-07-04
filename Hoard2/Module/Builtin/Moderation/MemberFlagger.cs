@@ -51,14 +51,14 @@ namespace Hoard2.Module.Builtin.Moderation
 
 		public override async Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser) => await ProcessGuildUser(socketGuildUser);
 
-		public override Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser)
+		public override async Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser)
 		{
 			if (newUser is not IGuildUser guildNewUser)
-				return Task.CompletedTask;
+				return;
 			if (oldUser is not IGuildUser guildOldUser)
-				return Task.CompletedTask;
+				return;
 			if (GetFlagRole(guildNewUser.GuildId) is not { } flagRole)
-				return Task.CompletedTask;
+				return;
 
 			var ignoreList = GetIgnoreList(guildNewUser.GuildId);
 			if (guildNewUser.RoleIds.Contains(flagRole.Id))
@@ -68,22 +68,22 @@ namespace Hoard2.Module.Builtin.Moderation
 					ignoreList.Remove(guildNewUser.Id);
 					SetIgnoreList(guildNewUser.Id, ignoreList);
 				}
-				return Task.CompletedTask;
+				await ProcessGuildUser(guildNewUser, true);
+				return;
 			}
 
 			if (!guildOldUser.RoleIds.Contains(flagRole.Id))
-				return Task.CompletedTask;
+				return;
 			if (ignoreList.Contains(guildNewUser.Id))
-				return Task.CompletedTask;
+				return;
 
 			ignoreList.Add(guildNewUser.Id);
 			SetIgnoreList(guildNewUser.GuildId, ignoreList);
-			return Task.CompletedTask;
 		}
 
-		async Task ProcessGuildUser(IGuildUser user)
+		async Task ProcessGuildUser(IGuildUser user, bool forced = false)
 		{
-			if (GetIgnoreList(user.GuildId).Contains(user.Id))
+			if (GetIgnoreList(user.GuildId).Contains(user.Id) && !forced)
 				return;
 			if (GetFlagRole(user.GuildId) is not { } flagRole)
 				return;
@@ -94,6 +94,9 @@ namespace Hoard2.Module.Builtin.Moderation
 				return;
 
 			var failReasons = new List<string>();
+
+			if (forced)
+				failReasons.Add("Forced.");
 
 			if (user.GetAvatarUrl() is null)
 				failReasons.Add("Avatar is not set.");
