@@ -1,4 +1,6 @@
-﻿using Discord;
+﻿using System.Text;
+
+using Discord;
 using Discord.WebSocket;
 
 using Hoard2.Util;
@@ -8,6 +10,33 @@ namespace Hoard2.Module.Builtin
 	public class ModuleManager : ModuleBase
 	{
 		public ModuleManager(string configPath) : base(configPath) { }
+
+		[ModuleCommand(GuildPermission.Administrator)]
+		[CommandGuildOnly]
+		public static async Task ListModules(SocketSlashCommand command, string? filter = null)
+		{
+			var message = new StringBuilder($"{(filter is null ? "All" : " filtered")} modules:\n```diff\n");
+			var filtered = ModuleHelper.TypeMap.Where(kvp =>
+			{
+				if (filter is null)
+					return true;
+				return kvp.Key.Contains(filter);
+			}).OrderBy(kvp => kvp.Key).ToList();
+
+			if (!filtered.Any())
+			{
+				await command.RespondAsync("No modules found.");
+				return;
+			}
+
+			foreach (var (name, type) in filtered)
+				if (ModuleHelper.IsModuleLoaded(command.GuildId!.Value, type))
+					message.AppendLine($"+ {name}");
+				else
+					message.AppendLine($"- {name}");
+			message.AppendLine("```");
+			await command.RespondAsync(message.ToString());
+		}
 
 		[ModuleCommand(GuildPermission.Administrator)]
 		[CommandGuildOnly]

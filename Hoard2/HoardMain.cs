@@ -31,7 +31,7 @@ namespace Hoard2
 			{
 				GatewayIntents = GatewayIntents.All ^ (GatewayIntents.GuildPresences | GatewayIntents.GuildScheduledEvents),
 				DefaultRetryMode = RetryMode.RetryRatelimit,
-				MessageCacheSize = 200,
+				MessageCacheSize = 2000,
 				AlwaysDownloadUsers = true,
 				LogLevel = LogSeverity.Verbose,
 			});
@@ -135,6 +135,7 @@ namespace Hoard2
 			DiscordClient.UserJoined += ModuleHelper.DiscordClientOnUserJoined;
 			DiscordClient.UserLeft += ModuleHelper.DiscordClientOnUserLeft;
 			DiscordClient.UserUpdated += ModuleHelper.DiscordClientOnUserUpdated;
+			DiscordClient.GuildMemberUpdated += ModuleHelper.DiscordClientOnGuildMemberUpdated;
 			DiscordClient.JoinedGuild += ModuleHelper.DiscordClientOnJoinedGuild;
 			DiscordClient.LeftGuild += ModuleHelper.DiscordClientOnLeftGuild;
 			DiscordClient.UserBanned += ModuleHelper.DiscordClientOnUserBanned;

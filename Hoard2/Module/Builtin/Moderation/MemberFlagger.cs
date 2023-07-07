@@ -51,34 +51,33 @@ namespace Hoard2.Module.Builtin.Moderation
 
 		public override async Task DiscordClientOnUserJoined(SocketGuildUser socketGuildUser) => await ProcessGuildUser(socketGuildUser);
 
-		public override async Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser)
+		public override async Task DiscordClientOnGuildMemberUpdated(SocketGuildUser oldUser, SocketGuildUser newUser)
 		{
-			if (newUser is not IGuildUser guildNewUser)
-				return;
-			if (oldUser is not IGuildUser guildOldUser)
-				return;
-			if (GetFlagRole(guildNewUser.GuildId) is not { } flagRole)
+			if (GetFlagRole(newUser.Guild.Id) is not { } flagRole)
 				return;
 
-			var ignoreList = GetIgnoreList(guildNewUser.GuildId);
-			if (guildNewUser.RoleIds.Contains(flagRole.Id))
+			var hadBefore = oldUser.Roles.Any(role => role.Id == flagRole.Id);
+			var hasAfter = newUser.Roles.Any(role => role.Id == flagRole.Id);
+
+			var ignoreList = GetIgnoreList(newUser.Guild.Id);
+			if (hasAfter && !hadBefore)
 			{
-				if (ignoreList.Contains(guildNewUser.Id))
+				if (ignoreList.Contains(newUser.Id))
 				{
-					ignoreList.Remove(guildNewUser.Id);
-					SetIgnoreList(guildNewUser.Id, ignoreList);
+					ignoreList.Remove(newUser.Id);
+					SetIgnoreList(newUser.Id, ignoreList);
 				}
-				await ProcessGuildUser(guildNewUser, true);
+				await ProcessGuildUser(newUser, true);
 				return;
 			}
 
-			if (!guildOldUser.RoleIds.Contains(flagRole.Id))
+			if (hadBefore == hasAfter)
 				return;
-			if (ignoreList.Contains(guildNewUser.Id))
+			if (ignoreList.Contains(newUser.Id))
 				return;
 
-			ignoreList.Add(guildNewUser.Id);
-			SetIgnoreList(guildNewUser.GuildId, ignoreList);
+			ignoreList.Add(newUser.Id);
+			SetIgnoreList(newUser.Guild.Id, ignoreList);
 		}
 
 		async Task ProcessGuildUser(IGuildUser user, bool forced = false)
@@ -90,7 +89,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			if (await GetLogChannel(user.GuildId) is not { } flagChannel)
 				return;
 
-			if (user.RoleIds.Contains(flagRole.Id))
+			if (user.RoleIds.Contains(flagRole.Id) && !forced)
 				return;
 
 			var failReasons = new List<string>();

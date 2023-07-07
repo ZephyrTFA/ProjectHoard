@@ -202,10 +202,13 @@ namespace Hoard2.Module
 
 		public static async Task DiscordClientOnUserLeft(SocketGuild guild, SocketUser user) => await DoForAll(guild.Id, async module => await module.DiscordClientOnUserLeft(guild, user));
 
-		public static async Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser)
+		public static async Task DiscordClientOnUserUpdated(SocketUser oldUser, SocketUser newUser) => await DoForAll(0, async module => await module.DiscordClientOnUserUpdated(oldUser, newUser));
+
+		public static async Task DiscordClientOnGuildMemberUpdated(Cacheable<SocketGuildUser, ulong> oldUser, SocketGuildUser newUser)
 		{
-			var guildId = newUser is SocketGuildUser guildUser ? guildUser.Guild.Id : 0;
-			await DoForAll(guildId, async module => await module.DiscordClientOnUserUpdated(oldUser, newUser));
+			if (!oldUser.HasValue)
+				return;
+			await DoForAll(newUser.Guild.Id, async module => await module.DiscordClientOnGuildMemberUpdated(oldUser.Value, newUser));
 		}
 
 		public static async Task DiscordClientOnJoinedGuild(SocketGuild guild) => await DoForAll(0, async module => await module.DiscordClientOnJoinedGuild(guild));

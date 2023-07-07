@@ -46,7 +46,7 @@ namespace Hoard2.Util
 				desc,
 				parameterInfo.ParameterType.ToDiscordCommandType(),
 				parameterInfo.DefaultValue,
-				!parameterInfo.ParameterType.IsNullableType()
+				!parameterInfo.Attributes.HasFlag(ParameterAttributes.Optional)
 			);
 		}
 	}
