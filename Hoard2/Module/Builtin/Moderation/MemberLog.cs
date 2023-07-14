@@ -67,6 +67,7 @@ namespace Hoard2.Module.Builtin.Moderation
 		}
 
 		[ModuleCommand(GuildPermission.ManageNicknames)]
+		[CommandGuildOnly]
 		[Description("Check the nickname history for the given user.")]
 		public static async Task CheckNicknameHistory(SocketSlashCommand command, IGuildUser user)
 		{
