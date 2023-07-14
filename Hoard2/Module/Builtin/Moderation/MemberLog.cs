@@ -77,8 +77,8 @@ namespace Hoard2.Module.Builtin.Moderation
 				return;
 			}
 
-			var nicks = userData.GetGuildNicknameHistory(user);
-			var response = new StringBuilder($"Previous nicknames for {user.Mention}:\n");
+			var nicks = userData.GetGuildNicknameHistory(user).Take(20);
+			var response = new StringBuilder($"Previous nicknames (max 20) for {user.Mention}:\n");
 			foreach (var nick in nicks)
 				response.AppendLine($"- `{nick}`");
 			await command.RespondAsync(response.ToString(), allowedMentions: AllowedMentions.None);
