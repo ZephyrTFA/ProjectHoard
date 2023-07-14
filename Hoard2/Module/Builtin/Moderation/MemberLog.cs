@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text;
 
 using Discord;
 using Discord.Rest;
@@ -12,6 +13,7 @@ namespace Hoard2.Module.Builtin.Moderation
 		public const string ChannelLeave = "channel-leave";
 		public const string ChannelBan = "channel-ban";
 		public const string ChannelUnban = "channel-unban";
+		public const string ChannelUpdate = "channel-update";
 
 		public MemberLog(string configPath) : base(configPath) { }
 
@@ -40,6 +42,14 @@ namespace Hoard2.Module.Builtin.Moderation
 		}
 
 		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Update the target channel for member updates.")]
+		public async Task SetUpdateChannel(SocketSlashCommand command, IChannel channel)
+		{
+			GuildConfig(command.GuildId!.Value).Set(ChannelUpdate, channel.Id);
+			await command.RespondAsync($"Updated the target log channel to <#{channel.Id}>");
+		}
+
+		[ModuleCommand(GuildPermission.Administrator)]
 		[Description("Update the target channel for member bans.")]
 		public async Task SetUnbanChannel(SocketSlashCommand command, IChannel channel)
 		{
@@ -64,21 +74,24 @@ namespace Hoard2.Module.Builtin.Moderation
 			var leaveChannel = await GetChannel(command.GuildId!.Value, ChannelLeave);
 			var banChannel = await GetChannel(command.GuildId!.Value, ChannelBan);
 			var unbanChannel = await GetChannel(command.GuildId!.Value, ChannelUnban);
+			var updateChannel = await GetChannel(command.GuildId!.Value, ChannelUpdate);
 
 			var joinText = joinChannel is { } ? $"<#{joinChannel.Id}>" : "Not Set";
 			var leaveText = leaveChannel is { } ? $"<#{leaveChannel.Id}>" : "Not Set";
 			var banText = banChannel is { } ? $"<#{banChannel.Id}>" : "Not Set";
 			var unbanText = unbanChannel is { } ? $"<#{unbanChannel.Id}>" : "Not Set";
+			var updateText = updateChannel is { } ? $"<#{updateChannel.Id}>" : "Not Set";
 
 			await command.RespondAsync("Channel Map", embed:
 				new EmbedBuilder()
 					.WithCurrentTimestamp()
 					.WithTitle("Channel Map")
 					.WithDescription(
-						$"**Join:**  - {joinText}\n" +
-						$"**Leave:** - {leaveText}\n" +
-						$"**Ban:**   - {banText}\n" +
-						$"**Unban:** - {unbanText}\n"
+						$"**Join:**   - {joinText}\n" +
+						$"**Leave:**  - {leaveText}\n" +
+						$"**Ban:**    - {banText}\n" +
+						$"**Unban:**  - {unbanText}\n" +
+						$"** Update:** - {updateText}\n"
 					)
 					.Build());
 		}
@@ -202,6 +215,73 @@ namespace Hoard2.Module.Builtin.Moderation
 				.WithFields(new EmbedFieldBuilder().WithName("Creation Date").WithValue(socketUser.CreatedAt))
 				.WithFields(new EmbedFieldBuilder().WithName("UID").WithValue($"{socketUser.Id}"))
 				.Build());
+		}
+
+		public override async Task DiscordClientOnGuildMemberUpdated(SocketGuildUser oldUserValue, SocketGuildUser newUser)
+		{
+			var channel = await GetChannel(newUser.Guild.Id, ChannelUpdate);
+			if (channel is null)
+				return;
+
+			var rolesRemoved = oldUserValue.Roles.Where(role => !newUser.Roles.Contains(role)).ToList();
+			var rolesAdded = newUser.Roles.Where(role => !oldUserValue.Roles.Contains(role)).ToList();
+
+			var flagsRemoved = (from flag in Enum.GetValues<GuildUserFlags>()
+													where oldUserValue.Flags.HasFlag(flag)
+													where !newUser.Flags.HasFlag(flag)
+													select flag).ToList();
+			var flagsAdded = (from flag in Enum.GetValues<GuildUserFlags>()
+												where newUser.Flags.HasFlag(flag)
+												where !oldUserValue.Flags.HasFlag(flag)
+												select flag).ToList();
+
+			var embed = new EmbedBuilder()
+				.WithAuthor(newUser)
+				.WithTimestamp(DateTimeOffset.UtcNow)
+				.WithColor(Color.Purple)
+				.WithTitle($"{newUser.Username} updated.")
+				.WithDescription($"{newUser.Mention}")
+				.WithImageUrl(newUser.GetAvatarUrl());
+
+			if (rolesRemoved.Any())
+			{
+				var rolesRemovedText = new StringBuilder();
+				foreach (var role in rolesRemoved)
+					rolesRemovedText.AppendLine($"- {role.Mention}");
+				embed.AddField(new EmbedFieldBuilder().WithName("Removed Roles").WithValue(rolesRemovedText.ToString()));
+			}
+
+			if (rolesAdded.Any())
+			{
+				var rolesAddedText = new StringBuilder();
+				foreach (var role in rolesAdded)
+					rolesAddedText.AppendLine($"- {role.Mention}");
+				embed.AddField(new EmbedFieldBuilder().WithName("Added Roles").WithValue(rolesAddedText.ToString()));
+			}
+
+			if (flagsRemoved.Any())
+			{
+				var flagsRemovedText = new StringBuilder();
+				foreach (var flag in flagsRemoved)
+					flagsRemovedText.AppendLine($"- {flag.ToString()}");
+				embed.AddField(new EmbedFieldBuilder().WithName("Removed Flags").WithValue(flagsRemovedText.ToString()));
+			}
+
+			if (flagsAdded.Any())
+			{
+				var flagsAddedText = new StringBuilder();
+				foreach (var flag in flagsAdded)
+					flagsAddedText.AppendLine($"- {flag.ToString()}");
+				embed.AddField(new EmbedFieldBuilder().WithName("Added Flags").WithValue(flagsAddedText.ToString()));
+			}
+
+			if (newUser.Username != oldUserValue.Username)
+				embed.AddField(new EmbedFieldBuilder().WithName("Changed Username").WithValue($"`{oldUserValue.Username}` -> `{newUser.Username}`"));
+
+			if (newUser.Nickname != oldUserValue.Nickname)
+				embed.AddField(new EmbedFieldBuilder().WithName("Changed Nickname").WithName($"`{oldUserValue.Nickname}` -> `{newUser.Nickname}`"));
+
+			await channel.SendMessageAsync(embed: embed.Build());
 		}
 	}
 }
