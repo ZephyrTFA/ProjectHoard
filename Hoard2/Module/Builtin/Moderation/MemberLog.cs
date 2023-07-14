@@ -240,11 +240,12 @@ namespace Hoard2.Module.Builtin.Moderation
 				.WithTimestamp(DateTimeOffset.UtcNow)
 				.WithColor(Color.Purple)
 				.WithTitle($"{newUser.Username} updated.")
-				.WithDescription($"{newUser.Mention}")
-				.WithImageUrl(newUser.GetAvatarUrl());
+				.WithDescription($"{newUser.Mention}");
 
+			var getAuditEntry = false;
 			if (rolesRemoved.Any())
 			{
+				getAuditEntry = true;
 				var rolesRemovedText = new StringBuilder();
 				foreach (var role in rolesRemoved)
 					rolesRemovedText.AppendLine($"- {role.Mention}");
@@ -253,10 +254,26 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (rolesAdded.Any())
 			{
+				getAuditEntry = true;
 				var rolesAddedText = new StringBuilder();
 				foreach (var role in rolesAdded)
 					rolesAddedText.AppendLine($"- {role.Mention}");
 				embed.AddField(new EmbedFieldBuilder().WithName("Added Roles").WithValue(rolesAddedText.ToString()));
+			}
+
+			if (getAuditEntry)
+			{
+				var auditLogEntry = await HoardMain.DiscordClient.GetGuild(newUser.Guild.Id).GetAuditLogsAsync(20, actionType: ActionType.MemberRoleUpdated).FlattenAsync();
+				foreach (var audit in auditLogEntry)
+				{
+					var data = (MemberRoleAuditLogData)audit.Data;
+					if (data.Target.Id != newUser.Id)
+						continue;
+
+					embed.AddField(new EmbedFieldBuilder().WithName("Moderator").WithValue(audit.User.Mention));
+					embed.AddField(new EmbedFieldBuilder().WithName("Reason").WithValue(audit.Reason ?? "No Reason Specified"));
+					break;
+				}
 			}
 
 			if (flagsRemoved.Any())
@@ -276,10 +293,14 @@ namespace Hoard2.Module.Builtin.Moderation
 			}
 
 			if (newUser.Username != oldUserValue.Username)
-				embed.AddField(new EmbedFieldBuilder().WithName("Changed Username").WithValue($"`{oldUserValue.Username}` -> `{newUser.Username}`"));
+				embed.AddField(new EmbedFieldBuilder()
+					.WithName("Changed Username")
+					.WithValue($"`{oldUserValue.Username}` -> `{newUser.Username}`"));
 
 			if (newUser.Nickname != oldUserValue.Nickname)
-				embed.AddField(new EmbedFieldBuilder().WithName("Changed Nickname").WithName($"`{oldUserValue.Nickname}` -> `{newUser.Nickname}`"));
+				embed.AddField(new EmbedFieldBuilder()
+					.WithName("Changed Nickname")
+					.WithValue($"`{oldUserValue.Nickname ?? "No Nickname"}` -> `{newUser.Nickname ?? "No Nickname"}`"));
 
 			await channel.SendMessageAsync(embed: embed.Build());
 		}
