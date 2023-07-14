@@ -225,6 +225,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			var rolesRemoved = oldUserValue.Roles.Where(role => !newUser.Roles.Contains(role)).ToList();
 			var rolesAdded = newUser.Roles.Where(role => !oldUserValue.Roles.Contains(role)).ToList();
+			var somethingChanged = false;
 
 			var flagsRemoved = (from flag in Enum.GetValues<GuildUserFlags>()
 													where oldUserValue.Flags.HasFlag(flag)
@@ -246,6 +247,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			if (rolesRemoved.Any())
 			{
 				getAuditEntry = true;
+				somethingChanged = true;
 				var rolesRemovedText = new StringBuilder();
 				foreach (var role in rolesRemoved)
 					rolesRemovedText.AppendLine($"- {role.Mention}");
@@ -255,6 +257,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			if (rolesAdded.Any())
 			{
 				getAuditEntry = true;
+				somethingChanged = true;
 				var rolesAddedText = new StringBuilder();
 				foreach (var role in rolesAdded)
 					rolesAddedText.AppendLine($"- {role.Mention}");
@@ -278,6 +281,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (flagsRemoved.Any())
 			{
+				somethingChanged = true;
 				var flagsRemovedText = new StringBuilder();
 				foreach (var flag in flagsRemoved)
 					flagsRemovedText.AppendLine($"- {flag.ToString()}");
@@ -286,23 +290,31 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (flagsAdded.Any())
 			{
+				somethingChanged = true;
 				var flagsAddedText = new StringBuilder();
 				foreach (var flag in flagsAdded)
 					flagsAddedText.AppendLine($"- {flag.ToString()}");
 				embed.AddField(new EmbedFieldBuilder().WithName("Added Flags").WithValue(flagsAddedText.ToString()));
 			}
 
-			if (newUser.Username != oldUserValue.Username)
+			if (!String.Equals(newUser.Username, oldUserValue.Username, StringComparison.CurrentCultureIgnoreCase))
+			{
+				somethingChanged = true;
 				embed.AddField(new EmbedFieldBuilder()
 					.WithName("Changed Username")
 					.WithValue($"`{oldUserValue.Username}` -> `{newUser.Username}`"));
+			}
 
 			if (newUser.Nickname != oldUserValue.Nickname)
+			{
+				somethingChanged = true;
 				embed.AddField(new EmbedFieldBuilder()
 					.WithName("Changed Nickname")
 					.WithValue($"`{oldUserValue.Nickname ?? "No Nickname"}` -> `{newUser.Nickname ?? "No Nickname"}`"));
+			}
 
-			await channel.SendMessageAsync(embed: embed.Build());
+			if (somethingChanged)
+				await channel.SendMessageAsync(embed: embed.Build());
 		}
 	}
 }
