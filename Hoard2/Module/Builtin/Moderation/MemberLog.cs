@@ -66,6 +66,23 @@ namespace Hoard2.Module.Builtin.Moderation
 			return await HoardMain.DiscordClient.GetChannelAsync(channelId) as IMessageChannel;
 		}
 
+		[ModuleCommand(GuildPermission.ManageNicknames)]
+		[Description("Check the nickname history for the given user.")]
+		public static async Task CheckNicknameHistory(SocketSlashCommand command, IGuildUser user)
+		{
+			if (!ModuleHelper.TryGetModule(out UserDataHelper? userData))
+			{
+				await command.RespondAsync("Failed to load UserDataHelper", ephemeral: true);
+				return;
+			}
+
+			var nicks = userData.GetGuildNicknameHistory(user);
+			var response = new StringBuilder($"Previous nicknames for {user.Mention}:\n");
+			foreach (var nick in nicks)
+				response.AppendLine($"- `{nick}`");
+			await command.RespondAsync(response.ToString(), allowedMentions: AllowedMentions.None);
+		}
+
 		[ModuleCommand(GuildPermission.Administrator)]
 		[Description("Check the current target channel.")]
 		public async Task CheckMemberLogChannel(SocketSlashCommand command)
@@ -219,9 +236,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 		public override async Task DiscordClientOnGuildMemberUpdated(SocketGuildUser oldUserValue, SocketGuildUser newUser)
 		{
-			var channel = await GetChannel(newUser.Guild.Id, ChannelUpdate);
-			if (channel is null)
-				return;
+			ModuleHelper.TryGetModule(out UserDataHelper? userData);
 
 			var rolesRemoved = oldUserValue.Roles.Where(role => !newUser.Roles.Contains(role)).ToList();
 			var rolesAdded = newUser.Roles.Where(role => !oldUserValue.Roles.Contains(role)).ToList();
@@ -299,6 +314,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (!String.Equals(newUser.Username, oldUserValue.Username, StringComparison.CurrentCultureIgnoreCase))
 			{
+				userData?.AddUsernameChange(newUser);
 				somethingChanged = true;
 				embed.AddField(new EmbedFieldBuilder()
 					.WithName("Changed Username")
@@ -307,11 +323,19 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (newUser.Nickname != oldUserValue.Nickname)
 			{
+				userData?.AddGuildNicknameChange(newUser);
 				somethingChanged = true;
 				embed.AddField(new EmbedFieldBuilder()
 					.WithName("Changed Nickname")
 					.WithValue($"`{oldUserValue.Nickname ?? "No Nickname"}` -> `{newUser.Nickname ?? "No Nickname"}`"));
 			}
+
+			if (oldUserValue.GetDisplayAvatarUrl() != newUser.GetDisplayAvatarUrl())
+				userData?.AddProfilePictureChange(newUser);
+
+			var channel = await GetChannel(newUser.Guild.Id, ChannelUpdate);
+			if (channel is null)
+				return;
 
 			if (somethingChanged)
 				await channel.SendMessageAsync(embed: embed.Build());
