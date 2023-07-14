@@ -38,7 +38,7 @@ namespace Hoard2.Util
 				return ApplicationCommandOptionType.String;
 			if (type == typeof(int) || type == typeof(long))
 				return ApplicationCommandOptionType.Integer;
-			if (type == typeof(IUser))
+			if (type == typeof(IUser) || type == typeof(IGuildUser))
 				return ApplicationCommandOptionType.User;
 			if (type == typeof(IChannel) || type == typeof(IMessageChannel))
 				return ApplicationCommandOptionType.Channel;
