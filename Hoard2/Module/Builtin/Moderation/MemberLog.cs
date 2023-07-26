@@ -259,10 +259,10 @@ namespace Hoard2.Module.Builtin.Moderation
 				.WithTitle($"{newUser.Username} updated.")
 				.WithDescription($"{newUser.Mention}");
 
-			ActionType? getAuditType = null;
+			var getAuditType = new List<ActionType>();
 			if (rolesRemoved.Any())
 			{
-				getAuditType |= ActionType.RoleUpdated;
+				getAuditType.Add(ActionType.RoleUpdated);
 				somethingChanged = true;
 				var rolesRemovedText = new StringBuilder();
 				foreach (var role in rolesRemoved)
@@ -272,7 +272,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (rolesAdded.Any())
 			{
-				getAuditType |= ActionType.RoleUpdated;
+				getAuditType.Add(ActionType.RoleUpdated);
 				somethingChanged = true;
 				var rolesAddedText = new StringBuilder();
 				foreach (var role in rolesAdded)
@@ -282,7 +282,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (newUser.Nickname != oldUserValue.Nickname)
 			{
-				getAuditType |= ActionType.MemberUpdated;
+				getAuditType.Add(ActionType.MemberUpdated);
 				userData?.AddGuildNicknameChange(newUser);
 				somethingChanged = true;
 				embed.AddField(new EmbedFieldBuilder()
@@ -290,8 +290,8 @@ namespace Hoard2.Module.Builtin.Moderation
 					.WithValue($"`{oldUserValue.Nickname ?? "No Nickname"}` -> `{newUser.Nickname ?? "No Nickname"}`"));
 			}
 
-			if (getAuditType is { })
-				foreach (var flag in Enum.GetValues<ActionType>().Where(flag => getAuditType.Value.HasFlag(flag)))
+			if (getAuditType.Any())
+				foreach (var flag in getAuditType.ToHashSet())
 				{
 					var auditLogEntries = await HoardMain.DiscordClient.GetGuild(newUser.Guild.Id).GetAuditLogsAsync(20, actionType: flag).FlattenAsync();
 					foreach (var auditEntry in auditLogEntries)
