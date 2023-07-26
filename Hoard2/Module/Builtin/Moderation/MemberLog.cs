@@ -37,7 +37,7 @@ namespace Hoard2.Module.Builtin.Moderation
 		[Description("Update the target channel for member unbans.")]
 		public async Task SetBanChannel(SocketSlashCommand command, IChannel channel)
 		{
-			GuildConfig(command.GuildId!.Value).Set(ChannelUnban, channel.Id);
+			GuildConfig(command.GuildId!.Value).Set(ChannelBan, channel.Id);
 			await command.RespondAsync($"Updated the target log channel to <#{channel.Id}>");
 		}
 
@@ -53,7 +53,7 @@ namespace Hoard2.Module.Builtin.Moderation
 		[Description("Update the target channel for member bans.")]
 		public async Task SetUnbanChannel(SocketSlashCommand command, IChannel channel)
 		{
-			GuildConfig(command.GuildId!.Value).Set(ChannelBan, channel.Id);
+			GuildConfig(command.GuildId!.Value).Set(ChannelUnban, channel.Id);
 			await command.RespondAsync($"Updated the target log channel to <#{channel.Id}>");
 		}
 
@@ -259,10 +259,10 @@ namespace Hoard2.Module.Builtin.Moderation
 				.WithTitle($"{newUser.Username} updated.")
 				.WithDescription($"{newUser.Mention}");
 
-			var getAuditEntry = false;
+			ActionType? getAuditType = null;
 			if (rolesRemoved.Any())
 			{
-				getAuditEntry = true;
+				getAuditType |= ActionType.RoleUpdated;
 				somethingChanged = true;
 				var rolesRemovedText = new StringBuilder();
 				foreach (var role in rolesRemoved)
@@ -272,7 +272,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (rolesAdded.Any())
 			{
-				getAuditEntry = true;
+				getAuditType |= ActionType.RoleUpdated;
 				somethingChanged = true;
 				var rolesAddedText = new StringBuilder();
 				foreach (var role in rolesAdded)
@@ -280,20 +280,36 @@ namespace Hoard2.Module.Builtin.Moderation
 				embed.AddField(new EmbedFieldBuilder().WithName("Added Roles").WithValue(rolesAddedText.ToString()));
 			}
 
-			if (getAuditEntry)
+			if (newUser.Nickname != oldUserValue.Nickname)
 			{
-				var auditLogEntry = await HoardMain.DiscordClient.GetGuild(newUser.Guild.Id).GetAuditLogsAsync(20, actionType: ActionType.MemberRoleUpdated).FlattenAsync();
-				foreach (var audit in auditLogEntry)
-				{
-					var data = (MemberRoleAuditLogData)audit.Data;
-					if (data.Target.Id != newUser.Id)
-						continue;
-
-					embed.AddField(new EmbedFieldBuilder().WithName("Moderator").WithValue(audit.User.Mention));
-					embed.AddField(new EmbedFieldBuilder().WithName("Reason").WithValue(audit.Reason ?? "No Reason Specified"));
-					break;
-				}
+				getAuditType |= ActionType.MemberUpdated;
+				userData?.AddGuildNicknameChange(newUser);
+				somethingChanged = true;
+				embed.AddField(new EmbedFieldBuilder()
+					.WithName("Changed Nickname")
+					.WithValue($"`{oldUserValue.Nickname ?? "No Nickname"}` -> `{newUser.Nickname ?? "No Nickname"}`"));
 			}
+
+			if (getAuditType is { })
+				foreach (var flag in Enum.GetValues<ActionType>().Where(flag => getAuditType.Value.HasFlag(flag)))
+				{
+					var auditLogEntries = await HoardMain.DiscordClient.GetGuild(newUser.Guild.Id).GetAuditLogsAsync(20, actionType: flag).FlattenAsync();
+					foreach (var auditEntry in auditLogEntries)
+					{
+						switch (auditEntry.Data)
+						{
+							case MemberUpdateAuditLogData memberUpdateData when memberUpdateData.Target.Id != newUser.Id:
+							case MemberRoleAuditLogData roleUpdateData when roleUpdateData.Target.Id != newUser.Id:
+								continue;
+						}
+						embed.AddField(new EmbedFieldBuilder()
+							.WithName($"Audit Entry - {flag.ToString()}")
+							.WithValue(
+								$"Moderator: {auditEntry.User.Mention}\n" +
+								$"Reason:    `{auditEntry.Reason ?? "No Reason Specified"}`\n" +
+								$"Timestamp: <t:{auditEntry.CreatedAt.ToUnixTimeSeconds()}>"));
+					}
+				}
 
 			if (flagsRemoved.Any())
 			{
@@ -320,15 +336,6 @@ namespace Hoard2.Module.Builtin.Moderation
 				embed.AddField(new EmbedFieldBuilder()
 					.WithName("Changed Username")
 					.WithValue($"`{oldUserValue.Username}` -> `{newUser.Username}`"));
-			}
-
-			if (newUser.Nickname != oldUserValue.Nickname)
-			{
-				userData?.AddGuildNicknameChange(newUser);
-				somethingChanged = true;
-				embed.AddField(new EmbedFieldBuilder()
-					.WithName("Changed Nickname")
-					.WithValue($"`{oldUserValue.Nickname ?? "No Nickname"}` -> `{newUser.Nickname ?? "No Nickname"}`"));
 			}
 
 			if (oldUserValue.GetDisplayAvatarUrl() != newUser.GetDisplayAvatarUrl())
