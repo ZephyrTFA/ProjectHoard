@@ -308,6 +308,7 @@ namespace Hoard2.Module.Builtin.Moderation
 								$"Moderator: {auditEntry.User.Mention}\n" +
 								$"Reason:    `{auditEntry.Reason ?? "No Reason Specified"}`\n" +
 								$"Timestamp: <t:{auditEntry.CreatedAt.ToUnixTimeSeconds()}>"));
+						break;
 					}
 				}
 
