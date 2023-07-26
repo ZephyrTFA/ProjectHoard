@@ -152,7 +152,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			var auditLogEntries = await guild.GetAuditLogsAsync(20, actionType: ActionType.Ban).FlattenAsync();
 			var entry = auditLogEntries.FirstOrDefault(logEntry =>
 			{
-				var data = (UnbanAuditLogData)logEntry.Data;
+				var data = (BanAuditLogData)logEntry.Data;
 				if (data.Target.Id == user.Id)
 					return true;
 				return false;
@@ -187,7 +187,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			var auditLogEntries = await guild.GetAuditLogsAsync(20, actionType: ActionType.Unban).FlattenAsync();
 			var entry = auditLogEntries.FirstOrDefault(logEntry =>
 			{
-				var data = (UnbanAuditLogData)logEntry.Data;
+				var data = (BanAuditLogData)logEntry.Data;
 				if (data.Target.Id == user.Id)
 					return true;
 				return false;
