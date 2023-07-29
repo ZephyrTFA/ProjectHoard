@@ -182,12 +182,13 @@ namespace Hoard2.Module.Builtin.SS13
 
 		// (user, instance) -> (channel, message)
 		Dictionary<(ulong, long), (ulong, ulong)> _daemonPanelStore = new Dictionary<(ulong, long), (ulong, ulong)>();
+		Dictionary<(ulong, long), Timer> _daemonPanelTimeoutStore = new Dictionary<(ulong, long), Timer>();
 
 		async Task<IUserMessage?> GetDaemonPanelMessage(IUser user, long instance)
 		{
 			if (!_daemonPanelStore.TryGetValue((user.Id, instance), out var match))
 				return null;
-			
+
 			var channel = await HoardMain.DiscordClient.GetChannelAsync(match.Item1);
 			if (channel is not IMessageChannel messageChannel)
 				return null;
@@ -195,7 +196,13 @@ namespace Hoard2.Module.Builtin.SS13
 			return await messageChannel.GetMessageAsync(match.Item2) as IUserMessage;
 		}
 
-		public async Task DoDreamDaemonPanel(IUserMessage holder, IGuildUser user, IInstanceClient instanceClient, bool kill = false, bool block = false)
+		public async Task DoDreamDaemonPanel(
+			IUserMessage holder,
+			IGuildUser user,
+			IInstanceClient instanceClient,
+			bool kill = false,
+			bool block = false,
+			bool timeout = false)
 		{
 			var currentState = await instanceClient.DreamDaemon.Read(default);
 			if (kill)
@@ -204,11 +211,22 @@ namespace Hoard2.Module.Builtin.SS13
 				return;
 			}
 
+			var blockButtons = block || timeout;
 			var existing = await GetDaemonPanelMessage(user, (long)instanceClient.Metadata.Id!);
-			if (existing is {} && existing.Id != holder.Id)
+			if (existing is { } && existing.Id != holder.Id)
 				await existing.DeleteAsync();
-			_daemonPanelStore[(user.Id, (long)instanceClient.Metadata.Id)] = (holder.Channel.Id, holder.Id);
-			
+
+			var key = (user.Id, (long)instanceClient.Metadata.Id);
+			_daemonPanelStore[key] = (holder.Channel.Id, holder.Id);
+
+			if (_daemonPanelTimeoutStore.TryGetValue(key, out var timer))
+				await timer.DisposeAsync();
+			_daemonPanelTimeoutStore[key] = new Timer(state =>
+			{
+				var stateKey = ((ulong, long))state!;
+				_ = DoDreamDaemonPanel(holder, user, instanceClient, timeout: true);
+			}, key, TimeSpan.FromSeconds(15), Timeout.InfiniteTimeSpan);
+
 			var embedData = new EmbedBuilder()
 				.WithTitle($"Dream Daemon - {instanceClient.Metadata.Name!}")
 				.WithColor(currentState.Status! switch
@@ -224,13 +242,13 @@ namespace Hoard2.Module.Builtin.SS13
 			var shutdownButton = CreateButton($"dd-shutdown-{instanceClient.Metadata.Id}", user.Id)
 				.WithLabel("Shutdown")
 				.WithStyle(ButtonStyle.Danger)
-				.WithDisabled(block || currentState.Status is WatchdogStatus.Offline)
+				.WithDisabled(blockButtons || currentState.Status is WatchdogStatus.Offline)
 				.Build();
 
 			var launchButton = CreateButton($"dd-launch-{instanceClient.Metadata.Id}", user.Id)
 				.WithLabel("Launch")
 				.WithStyle(ButtonStyle.Success)
-				.WithDisabled(block || currentState.Status is not WatchdogStatus.Offline)
+				.WithDisabled(blockButtons || currentState.Status is not WatchdogStatus.Offline)
 				.Build();
 
 			var componentBuilder = new ComponentBuilder()
@@ -238,7 +256,7 @@ namespace Hoard2.Module.Builtin.SS13
 
 			await holder.ModifyAsync(props =>
 			{
-				props.Content = block ? "Working..." : "";
+				props.Content = timeout ? "Disabled due to inactivity." : block ? "Working..." : "";
 				props.Components = new Optional<MessageComponent>(componentBuilder.Build());
 				props.Embeds = new Optional<Embed[]>(new[] { embedData.Build() });
 			});
@@ -256,7 +274,7 @@ namespace Hoard2.Module.Builtin.SS13
 						await button.RespondAsync("You are not logged in.", ephemeral: true);
 						return;
 					}
-					
+
 					var instance = Int64.Parse(data[2]);
 					var instanceClient = await GetInstanceById(serverClient, instance);
 					var panelMessage = (await GetDaemonPanelMessage(button.User, instance))!;
