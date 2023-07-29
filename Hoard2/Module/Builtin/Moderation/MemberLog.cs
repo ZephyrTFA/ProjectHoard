@@ -237,6 +237,9 @@ namespace Hoard2.Module.Builtin.Moderation
 
 		public override async Task DiscordClientOnGuildMemberUpdated(SocketGuildUser oldUserValue, SocketGuildUser newUser)
 		{
+			// give it a second to update everything
+			await Task.Delay(1000);
+
 			ModuleHelper.TryGetModule(out UserDataHelper? userData);
 
 			var rolesRemoved = oldUserValue.Roles.Where(role => !newUser.Roles.Contains(role)).ToList();
