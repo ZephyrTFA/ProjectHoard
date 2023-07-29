@@ -87,7 +87,7 @@ namespace Hoard2.Module.Builtin.SS13
 		{
 			var guildConfig = GuildConfig(user.GuildId);
 			var map = guildConfig.Get("user-login-store", new Dictionary<ulong, (string, string)>());
-			map![user.GuildId] = (username, password);
+			map![user.Id] = (username, password);
 			guildConfig.Set("user-login-store", map);
 		}
 
@@ -268,7 +268,10 @@ namespace Hoard2.Module.Builtin.SS13
 
 						case "launch":
 							await button.RespondAsync("Launching...");
-							await instanceClient.DreamDaemon.Start(default);
+							var jobResponse = await instanceClient.DreamDaemon.Start(default);
+							do
+								jobResponse = await instanceClient.Jobs.GetId(jobResponse, default);
+							while (jobResponse.StoppedAt is null);
 							break;
 
 						default:

@@ -149,6 +149,7 @@ namespace Hoard2.Module
 		{
 			TypeMap.Clear();
 		}
+		
 		static async Task DoForAll(ulong matchGuild, Func<ModuleBase, Task> action)
 		{
 			while (_doForAllWorking)
@@ -215,11 +216,12 @@ namespace Hoard2.Module
 		{
 			if (button.GuildId is null)
 				throw new NotImplementedException("Buttons are only implemented for Guilds.");
-			await DoForAll(button.GuildId!.Value, async module =>
+			await DoForAll(button.GuildId!.Value, module =>
 			{
 				if (module.GetButtonId(button) is not { } buttonId)
-					return;
-				await module.OnButton(buttonId, button);
+					return Task.CompletedTask;
+				var _ = module.OnButton(buttonId, button);
+				return Task.CompletedTask;
 			});
 		}
 

@@ -104,7 +104,7 @@ namespace Hoard2.Module
 			if (!Guid.TryParse(guidString, out var guidActual))
 				return null;
 
-			var buttonIdActual = buttonId[firstSlash..];
+			var buttonIdActual = buttonId[(firstSlash + 1)..];
 			if (!_knownButtons.TryGetValue(buttonIdActual, out var knownIds))
 				return null;
 
@@ -119,7 +119,7 @@ namespace Hoard2.Module
 				return null;
 			if (match.Value.Item2 is { } && match.Value.Item2.Value != button.User.Id)
 				return null;
-			return buttonId;
+			return buttonIdActual;
 		}
 
 		public virtual Task OnButton(string buttonId, SocketMessageComponent button) => Task.CompletedTask; 
