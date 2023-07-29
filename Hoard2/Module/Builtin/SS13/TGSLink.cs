@@ -19,7 +19,7 @@ namespace Hoard2.Module.Builtin.SS13
 
 		public Uri ServerUri => new Uri(ServerAddress);
 
-		public uint DefaultInstance { get; set; } = 0;
+		public long DefaultInstance { get; set; } = 0;
 	}
 
 	public class TGSLink : ModuleBase
@@ -77,12 +77,12 @@ namespace Hoard2.Module.Builtin.SS13
 				await command.SendOrModifyOriginalResponse("Failed to login.");
 		}
 
-		public static async Task<IInstanceClient> GetInstanceById(IServerClient client, ulong instanceId) =>
-			client.Instances.CreateClient(await client.Instances.GetId(new EntityId { Id = (long)instanceId }, default));
+		public static async Task<IInstanceClient> GetInstanceById(IServerClient client, long instanceId) =>
+			client.Instances.CreateClient(await client.Instances.GetId(new EntityId { Id = instanceId }, default));
 
 		[ModuleCommand]
 		[CommandGuildOnly]
-		public async Task GetActiveTestMerges(SocketSlashCommand command, ulong? instanceId)
+		public async Task GetActiveTestMerges(SocketSlashCommand command, long? instanceId)
 		{
 			var serverInfo = GetServerInformation(command.GuildId!.Value);
 			if (GetUserTgsClient(serverInfo.ServerUri, command.User) is not { } client)
