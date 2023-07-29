@@ -16,9 +16,6 @@ namespace Hoard2.Module
 	{
 		string _configDirectory;
 
-		List<Guid> _knownButtons = new List<Guid>();
-
-		List<Guid> _knownMenus = new List<Guid>();
 		public ModuleBase(string configPath)
 		{
 			_configDirectory = configPath;
@@ -77,6 +74,56 @@ namespace Hoard2.Module
 
 		public virtual void OnUnload(ulong guild) { }
 
+		Dictionary<string, List<(Guid, ulong?)>> _knownButtons = new Dictionary<string, List<(Guid, ulong?)>>();
+		public ButtonBuilder CreateButton(string buttonId, ulong? user = null)
+		{
+			if (!_knownButtons.ContainsKey(buttonId))
+				_knownButtons[buttonId] = new List<(Guid, ulong?)>();
+
+			Guid buttonGuid;
+			do
+				buttonGuid = Guid.NewGuid();
+			while (_knownButtons[buttonId].Any(guidPair => guidPair.Item1.Equals(buttonGuid)));
+
+			var builder = new ButtonBuilder();			
+			_knownButtons[buttonId].Add((buttonGuid, user));
+			return builder.WithCustomId($"{buttonGuid.ToString("")}/{buttonId}");
+		}
+
+		public string? GetButtonId(SocketMessageComponent button)
+		{
+			if (String.IsNullOrWhiteSpace(button.Data.CustomId))
+				return null;
+
+			var buttonId = button.Data.CustomId;
+			var firstSlash = buttonId.IndexOf('/');
+			if (firstSlash is -1)
+				return null;
+
+			var guidString = buttonId[..firstSlash];
+			if (!Guid.TryParse(guidString, out var guidActual))
+				return null;
+
+			var buttonIdActual = buttonId[firstSlash..];
+			if (!_knownButtons.TryGetValue(buttonIdActual, out var knownIds))
+				return null;
+
+			(Guid, ulong?)? match = null;
+			foreach(var knownId in knownIds)
+				if (knownId.Item1.Equals(guidActual))
+				{
+					match = knownId;
+					break;
+				}
+			if (match is null)
+				return null;
+			if (match.Value.Item2 is { } && match.Value.Item2.Value != button.User.Id)
+				return null;
+			return buttonId;
+		}
+
+		public virtual Task OnButton(string buttonId, SocketMessageComponent button) => Task.CompletedTask; 
+		
 		[AttributeUsage(AttributeTargets.Method)]
 		[UsedImplicitly(ImplicitUseTargetFlags.WithInheritors)]
 		public class ModuleCommandAttribute : Attribute

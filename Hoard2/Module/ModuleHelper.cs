@@ -211,6 +211,18 @@ namespace Hoard2.Module
 			await DoForAll(newUser.Guild.Id, async module => await module.DiscordClientOnGuildMemberUpdated(oldUser.Value, newUser));
 		}
 
+		public static async Task DiscordClientOnButtonExecuted(SocketMessageComponent button)
+		{
+			if (button.GuildId is null)
+				throw new NotImplementedException("Buttons are only implemented for Guilds.");
+			await DoForAll(button.GuildId!.Value, async module =>
+			{
+				if (module.GetButtonId(button) is not { } buttonId)
+					return;
+				await module.OnButton(buttonId, button);
+			});
+		}
+
 		public static async Task DiscordClientOnJoinedGuild(SocketGuild guild) => await DoForAll(0, async module => await module.DiscordClientOnJoinedGuild(guild));
 
 		public static async Task DiscordClientOnLeftGuild(SocketGuild guild) => await DoForAll(0, async module => await module.DiscordClientOnLeftGuild(guild));

@@ -60,8 +60,6 @@ namespace Hoard2.Module
 				await RefreshCommands(guildId);
 		}
 
-		public static Task DiscordClientOnButtonExecuted(SocketMessageComponent button) => throw new NotImplementedException();
-
 		public static async Task DiscordClientOnSlashCommandExecuted(SocketSlashCommand slashCommand)
 		{
 			if (slashCommand.CommandName != "project-hoard")

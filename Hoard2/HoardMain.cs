@@ -142,8 +142,7 @@ namespace Hoard2
 			DiscordClient.UserUnbanned += ModuleHelper.DiscordClientOnUserUnbanned;
 			DiscordClient.InviteCreated += ModuleHelper.DiscordClientOnInviteCreated;
 			DiscordClient.InviteDeleted += ModuleHelper.DiscordClientOnInviteDeleted;
-
-			DiscordClient.ButtonExecuted += CommandHelper.DiscordClientOnButtonExecuted;
+			DiscordClient.ButtonExecuted += ModuleHelper.DiscordClientOnButtonExecuted;
 			DiscordClient.SelectMenuExecuted += CommandHelper.DiscordClientOnSelectMenuExecuted;
 			DiscordClient.SlashCommandExecuted += CommandHelper.DiscordClientOnSlashCommandExecuted;
 		}
