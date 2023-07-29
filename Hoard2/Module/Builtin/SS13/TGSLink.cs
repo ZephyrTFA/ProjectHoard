@@ -6,8 +6,6 @@ using Discord.WebSocket;
 
 using Hoard2.Util;
 
-using Microsoft.Net.Http.Headers;
-
 using Tgstation.Server.Api.Models;
 using Tgstation.Server.Api.Models.Response;
 using Tgstation.Server.Client;
@@ -29,6 +27,8 @@ namespace Hoard2.Module.Builtin.SS13
 		public override List<Type> GetConfigKnownTypes() => new List<Type>
 		{
 			typeof(TgsServerInformation),
+			typeof(Dictionary<ulong, (string, string)>),
+			typeof((string, string)),
 		};
 
 		public TGSLink(string configPath) : base(configPath) { }
