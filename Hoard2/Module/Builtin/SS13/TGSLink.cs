@@ -65,6 +65,16 @@ namespace Hoard2.Module.Builtin.SS13
 			await command.RespondAsync("Updated the server address.");
 		}
 
+		[ModuleCommand(GuildPermission.Administrator)]
+		[CommandGuildOnly]
+		public async Task SetDefaultInstance(SocketSlashCommand command, long defaultId)
+		{
+			var info = GetServerInformation(command.GuildId!.Value);
+			info.DefaultInstance = defaultId;
+			SetServerInformation(command.GuildId.Value, info);
+			await command.RespondAsync("Updated the default instance id.");
+		}
+		
 		[ModuleCommand]
 		[CommandGuildOnly]
 		public async Task Login(SocketSlashCommand command, string username, string password)
@@ -82,7 +92,7 @@ namespace Hoard2.Module.Builtin.SS13
 
 		[ModuleCommand]
 		[CommandGuildOnly]
-		public async Task GetActiveTestMerges(SocketSlashCommand command, long? instanceId)
+		public async Task GetActiveTestMerges(SocketSlashCommand command, long instanceId = -1)
 		{
 			var serverInfo = GetServerInformation(command.GuildId!.Value);
 			if (GetUserTgsClient(serverInfo.ServerUri, command.User) is not { } client)
@@ -92,8 +102,9 @@ namespace Hoard2.Module.Builtin.SS13
 			}
 
 			await command.DeferAsync();
-			instanceId ??= serverInfo.DefaultInstance;
-			var instance = await GetInstanceById(client, instanceId.Value);
+			if(instanceId is -1)
+				instanceId = serverInfo.DefaultInstance;
+			var instance = await GetInstanceById(client, instanceId);
 			
 			var repository = await instance.Repository.Read(default);
 			if (repository.RevisionInformation is null)
