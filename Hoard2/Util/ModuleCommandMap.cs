@@ -90,8 +90,7 @@ namespace Hoard2.Util
 
 			var permissions = command.GetCustomAttribute<ModuleBase.ModuleCommandAttribute>()!.CommandPermissionRequirements;
 			var parameters = command.GetParameters().Skip(1).ToList();
-			parameters.Sort((left, right) => String.Compare(left.Name, right.Name, StringComparison.Ordinal));
-			var paramInfo = parameters.Select(ParameterInformation.GenerateParameterInformation).Reverse().ToImmutableList();
+			var paramInfo = parameters.Select(ParameterInformation.GenerateParameterInformation).ToImmutableList();
 
 			var guildOnly = command.GetCustomAttribute<ModuleBase.CommandGuildOnlyAttribute>() is { };
 			var dmOnly = command.GetCustomAttribute<ModuleBase.CommandDmOnlyAttribute>() is { };
