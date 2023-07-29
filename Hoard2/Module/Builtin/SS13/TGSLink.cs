@@ -195,7 +195,7 @@ namespace Hoard2.Module.Builtin.SS13
 			return await messageChannel.GetMessageAsync(match.Item2) as IUserMessage;
 		}
 
-		public async Task DoDreamDaemonPanel(IUserMessage holder, IGuildUser user, IInstanceClient instanceClient, bool kill = false)
+		public async Task DoDreamDaemonPanel(IUserMessage holder, IGuildUser user, IInstanceClient instanceClient, bool kill = false, bool block = false)
 		{
 			var currentState = await instanceClient.DreamDaemon.Read(default);
 			if (kill)
@@ -224,13 +224,13 @@ namespace Hoard2.Module.Builtin.SS13
 			var shutdownButton = CreateButton($"dd-shutdown-{instanceClient.Metadata.Id}", user.Id)
 				.WithLabel("Shutdown")
 				.WithStyle(ButtonStyle.Danger)
-				.WithDisabled(currentState.Status is WatchdogStatus.Offline)
+				.WithDisabled(block || currentState.Status is WatchdogStatus.Offline)
 				.Build();
 
 			var launchButton = CreateButton($"dd-launch-{instanceClient.Metadata.Id}", user.Id)
 				.WithLabel("Launch")
 				.WithStyle(ButtonStyle.Success)
-				.WithDisabled(currentState.Status is not WatchdogStatus.Offline)
+				.WithDisabled(block || currentState.Status is not WatchdogStatus.Offline)
 				.Build();
 
 			var componentBuilder = new ComponentBuilder()
@@ -238,7 +238,7 @@ namespace Hoard2.Module.Builtin.SS13
 
 			await holder.ModifyAsync(props =>
 			{
-				props.Content = "";
+				props.Content = block ? "Working..." : "";
 				props.Components = new Optional<MessageComponent>(componentBuilder.Build());
 				props.Embeds = new Optional<Embed[]>(new[] { embedData.Build() });
 			});
@@ -259,6 +259,7 @@ namespace Hoard2.Module.Builtin.SS13
 					
 					var instance = Int64.Parse(data[2]);
 					var instanceClient = await GetInstanceById(serverClient, instance);
+					var panelMessage = (await GetDaemonPanelMessage(button.User, instance))!;
 					switch (data[1])
 					{
 						case "shutdown":
@@ -268,6 +269,8 @@ namespace Hoard2.Module.Builtin.SS13
 
 						case "launch":
 							await button.RespondAsync("Launching...");
+							// block the panel
+							await DoDreamDaemonPanel(panelMessage, (IGuildUser)button.User, instanceClient, block: true);
 							var jobResponse = await instanceClient.DreamDaemon.Start(default);
 							do
 								jobResponse = await instanceClient.Jobs.GetId(jobResponse, default);
@@ -278,8 +281,8 @@ namespace Hoard2.Module.Builtin.SS13
 							throw new NotImplementedException($"Unknown dd command: {data[1]}");
 					}
 
-					var message = (await GetDaemonPanelMessage(button.User, instance))!;
-					var _ = DoDreamDaemonPanel(message, (IGuildUser)button.User, instanceClient);
+					// kick off a refresh, and don't wait
+					_ = DoDreamDaemonPanel(panelMessage, (IGuildUser)button.User, instanceClient);
 					break;
 
 				default:
