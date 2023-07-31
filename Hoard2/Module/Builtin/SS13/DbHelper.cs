@@ -43,10 +43,10 @@ namespace Hoard2.Module.Builtin.SS13
 		[CommandGuildOnly]
 		public async Task SetDatabaseUserPass(SocketSlashCommand command, string userPass)
 		{
-			var userPassSplit = userPass.Split(':');
+			var userPassSplit = userPass.Split(';');
 			if (userPass.Length != 2)
 			{
-				await command.RespondAsync("Invalid format. expected `user:pass`", ephemeral: true);
+				await command.RespondAsync("Invalid format. expected `user;pass`", ephemeral: true);
 				return;
 			}
 
