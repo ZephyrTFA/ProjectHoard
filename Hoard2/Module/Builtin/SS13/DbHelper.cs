@@ -62,10 +62,9 @@ namespace Hoard2.Module.Builtin.SS13
 			var (user, pass) = GetDatabaseUserPass(command.GuildId.Value);
 
 			var dbClient = new MySqlConnection($"Server={address};Database={schema};UID={user};PWD={pass}");
-			dbClient.Open();
+			await dbClient.OpenAsync();
 
 			var dbCommand = dbClient.CreateCommand();
-
 			var ckeyParam = ckey is { } ? dbCommand.CreateParameter() : null;
 			if (ckeyParam is { })
 			{
@@ -78,21 +77,23 @@ namespace Hoard2.Module.Builtin.SS13
 			monthParam.Value = months;
 			monthParam.ParameterName = "months";
 			dbCommand.Parameters.Add(monthParam);
-			
-			var commandText = 
-				$"WITH DISTINCT_ROUNDS AS (SELECT DISTINCT ckey, round_id FROM connection_log " +
-				$"WHERE {(ckey is { } ? "ckey LIKE @ckey AND" : "")} datetime >= DATE_SUB(NOW(), INTERVAL @months MONTH)) " +
-				$"SELECT DISTINCT_ROUNDS.ckey, COUNT(round_id) " +
-				$"FROM DISTINCT_ROUNDS GROUP BY DISTINCT_ROUNDS.ckey ORDER BY COUNT(round_id) DESC LIMIT 20";
-			dbCommand.CommandText = commandText;
 
+			var ckeyInsert = ckey is { } ? "ckey = @ckey AND" : "";
+			dbCommand.CommandText =
+				"WITH DISTINCT_ROUNDS AS (SELECT DISTINCT ckey, round_id\n" +
+				"FROM connection_log\n" +
+				"WHERE " + ckeyInsert + " datetime >= DATE_SUB(NOW(), INTERVAL @months MONTH))\n" +
+				"SELECT DISTINCT_ROUNDS.ckey, COUNT(round_id)\n" +
+				"FROM DISTINCT_ROUNDS\n" +
+				"GROUP BY DISTINCT_ROUNDS.ckey\n" +
+				"ORDER BY COUNT(round_id) DESC\n" +
+				"LIMIT 20\n";
+
+			await dbCommand.PrepareAsync();
 			var reader = await dbCommand.ExecuteReaderAsync();
 			var response = new StringBuilder("Query Results:\n```\n");
-			while (await reader.NextResultAsync())
-			{
-				response.AppendLine($"- {reader[0]}");
-				response.AppendLine($" - {reader[1]} rounds");
-			}
+			while (await reader.ReadAsync())
+				response.AppendLine($"- {reader[0]} | {reader[1]} rounds");
 			response.AppendLine("```");
 			await command.RespondAsync(response.ToString());
 		}
