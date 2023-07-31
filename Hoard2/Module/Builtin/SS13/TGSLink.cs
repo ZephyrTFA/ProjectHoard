@@ -338,21 +338,16 @@ namespace Hoard2.Module.Builtin.SS13
 
 			var existingTms = githubPRs.Where(ghPr => repositoryTMs.Any(rTm => rTm.Number == ghPr.Number)).ToList();
 			var availablePrs = githubPRs.Where(ghPr => !existingTms.Contains(ghPr)).ToList();
-
+			
 			var testMergeLabelName = GetServerInformation(user.GuildId).TestMergeLabelName;
 			if (onlyMarked)
 				availablePrs = availablePrs.Where(pr => pr.Labels.Any(label => label.Name == testMergeLabelName)).ToList();
 
 			var totalOptions = existingTms.Count + availablePrs.Count;
-			if (totalOptions > 25)
-			{
-				await holder.Item1!.RespondAsync(
-					onlyMarked ?
-						"Too many active test merges and marked pull requests. Please perform this on the web-panel or reduce marked PR count." :
-						"Too many possible pull requests. Please try again with only marked pulls.");
-				return;
-			}
-			testMergeMenu.WithMaxValues(totalOptions);
+			var skipped = totalOptions > 25 ? totalOptions - 25 : 0;
+			if (skipped > 0)
+				availablePrs = availablePrs.SkipLast(skipped).ToList();
+			testMergeMenu.WithMaxValues(totalOptions - skipped);
 
 			string Truncate(string @string, int length)
 			{
@@ -378,7 +373,7 @@ namespace Hoard2.Module.Builtin.SS13
 				.Build();
 			await holder.Item1!.ModifyOriginalResponseAsync(props =>
 				{
-					props.Content = $"Test Merge Menu - {instanceClient.Metadata.Name}";
+					props.Content = $"Test Merge Menu - {instanceClient.Metadata.Name}{(skipped > 0 ? $"\nSkipped {skipped} PRs due to discord api limits." : "")}";
 					props.Components = new Optional<MessageComponent>(components);
 				}
 			);
