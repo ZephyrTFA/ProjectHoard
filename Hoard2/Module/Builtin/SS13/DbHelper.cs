@@ -71,11 +71,13 @@ namespace Hoard2.Module.Builtin.SS13
 			{
 				ckeyParam.Value = ckey;
 				ckeyParam.ParameterName = "ckey";
+				dbCommand.Parameters.Add(ckeyParam);
 			}
 
 			var monthParam = dbCommand.CreateParameter();
 			monthParam.Value = months;
 			monthParam.ParameterName = "months";
+			dbCommand.Parameters.Add(monthParam);
 
 			var commandText = 
 				$"WITH DISTINCT_ROUNDS AS (SELECT DISTINCT ckey, round_id FROM connection_log " +
