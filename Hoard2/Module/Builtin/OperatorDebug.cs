@@ -33,5 +33,21 @@ namespace Hoard2.Module.Builtin
 			await command.SendOrModifyOriginalResponse("Throwing...");
 			throw new Exception("This is a test exception.");
 		}
+
+		[ModuleCommand(GuildPermission.Administrator)]
+		[Description("Test select menu.")]
+		public static async Task TestSelectMenu(SocketSlashCommand command)
+		{
+			await command.RespondAsync(
+				components: new ComponentBuilder()
+					.WithSelectMenu(new SelectMenuBuilder()
+						.WithPlaceholder("Debug")
+						.WithCustomId("debug-sm")
+						.WithMinValues(0)
+						.WithMaxValues(2)
+						.AddOption("D1", "d1", isDefault: true)
+						.AddOption("D2", "d2"))
+					.Build());
+		}
 	}
 }

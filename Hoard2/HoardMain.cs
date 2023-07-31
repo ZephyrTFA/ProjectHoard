@@ -143,7 +143,7 @@ namespace Hoard2
 			DiscordClient.InviteCreated += ModuleHelper.DiscordClientOnInviteCreated;
 			DiscordClient.InviteDeleted += ModuleHelper.DiscordClientOnInviteDeleted;
 			DiscordClient.ButtonExecuted += ModuleHelper.DiscordClientOnButtonExecuted;
-			DiscordClient.SelectMenuExecuted += CommandHelper.DiscordClientOnSelectMenuExecuted;
+			DiscordClient.SelectMenuExecuted += ModuleHelper.DiscordClientOnSelectMenuExecuted;
 			DiscordClient.SlashCommandExecuted += CommandHelper.DiscordClientOnSlashCommandExecuted;
 		}
 	}

@@ -220,7 +220,20 @@ namespace Hoard2.Module
 			{
 				if (module.GetButtonId(button) is not { } buttonId)
 					return Task.CompletedTask;
-				var _ = module.OnButton(buttonId, button);
+				_ = module.OnButton(buttonId, button);
+				return Task.CompletedTask;
+			});
+		}
+
+		public static async Task DiscordClientOnSelectMenuExecuted(SocketMessageComponent menu)
+		{
+			if (menu.GuildId is null)
+				throw new NotImplementedException("Menus are only implemented for Guilds.");
+			await DoForAll(menu.GuildId!.Value, module =>
+			{
+				if (module.GetMenuId(menu) is not { } menuId)
+					return Task.CompletedTask;
+				_ = module.OnMenu(menuId, menu);
 				return Task.CompletedTask;
 			});
 		}

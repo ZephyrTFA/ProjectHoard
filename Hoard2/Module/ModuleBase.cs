@@ -74,6 +74,53 @@ namespace Hoard2.Module
 
 		public virtual void OnUnload(ulong guild) { }
 
+		Dictionary<string, List<(Guid, ulong?)>> _knownMenus = new Dictionary<string, List<(Guid, ulong?)>>();
+		public SelectMenuBuilder CreateMenu(string menuId, ulong? user = null)
+		{
+			if (!_knownMenus.ContainsKey(menuId))
+				_knownMenus[menuId] = new List<(Guid, ulong?)>();
+
+			Guid menuGuid;
+			do
+				menuGuid = Guid.NewGuid();
+			while (_knownMenus[menuId].Any(guidPair => guidPair.Item1.Equals(menuGuid)));
+			_knownMenus[menuId].Add((menuGuid, user));
+
+			return new SelectMenuBuilder().WithCustomId($"{menuGuid.ToString()}/{menuId}");
+		}
+
+		public string? GetMenuId(SocketMessageComponent menu)
+		{
+			if (String.IsNullOrWhiteSpace(menu.Data.CustomId))
+				return null;
+
+			var menuId = menu.Data.CustomId;
+			var firstSlash = menuId.IndexOf('/');
+			if (firstSlash is -1)
+				return null;
+
+			var guidString = menuId[..firstSlash];
+			if (!Guid.TryParse(guidString, out var guidActual))
+				return null;
+
+			var menuIdActual = menuId[(firstSlash + 1)..];
+			if (!_knownMenus.TryGetValue(menuIdActual, out var knownIds))
+				return null;
+
+			(Guid, ulong?)? match = null;
+			foreach (var knownId in knownIds)
+				if (knownId.Item1.Equals(guidActual))
+				{
+					match = knownId;
+					break;
+				}
+			if (match is null)
+				return null;
+			if (match.Value.Item2 is { } && match.Value.Item2.Value != menu.User.Id)
+				return null;
+			return menuIdActual;
+		}
+
 		Dictionary<string, List<(Guid, ulong?)>> _knownButtons = new Dictionary<string, List<(Guid, ulong?)>>();
 		public ButtonBuilder CreateButton(string buttonId, ulong? user = null)
 		{
@@ -84,10 +131,9 @@ namespace Hoard2.Module
 			do
 				buttonGuid = Guid.NewGuid();
 			while (_knownButtons[buttonId].Any(guidPair => guidPair.Item1.Equals(buttonGuid)));
-
-			var builder = new ButtonBuilder();			
 			_knownButtons[buttonId].Add((buttonGuid, user));
-			return builder.WithCustomId($"{buttonGuid.ToString("")}/{buttonId}");
+
+			return new ButtonBuilder().WithCustomId($"{buttonGuid.ToString("")}/{buttonId}");
 		}
 
 		public string? GetButtonId(SocketMessageComponent button)
@@ -109,7 +155,7 @@ namespace Hoard2.Module
 				return null;
 
 			(Guid, ulong?)? match = null;
-			foreach(var knownId in knownIds)
+			foreach (var knownId in knownIds)
 				if (knownId.Item1.Equals(guidActual))
 				{
 					match = knownId;
@@ -122,8 +168,10 @@ namespace Hoard2.Module
 			return buttonIdActual;
 		}
 
-		public virtual Task OnButton(string buttonId, SocketMessageComponent button) => Task.CompletedTask; 
-		
+		public virtual Task OnButton(string buttonId, SocketMessageComponent button) => Task.CompletedTask;
+
+		public virtual Task OnMenu(string menuId, SocketMessageComponent menu) => Task.CompletedTask;
+
 		[AttributeUsage(AttributeTargets.Method)]
 		[UsedImplicitly(ImplicitUseTargetFlags.WithInheritors)]
 		public class ModuleCommandAttribute : Attribute

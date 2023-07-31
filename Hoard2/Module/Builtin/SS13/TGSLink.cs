@@ -1,15 +1,21 @@
-﻿using System.Net.Http.Headers;
-using System.Text;
+﻿using System.Text;
 
 using Discord;
 using Discord.WebSocket;
 
 using Hoard2.Util;
 
+using Octokit;
+using Octokit.Internal;
+
 using Tgstation.Server.Api.Models;
+using Tgstation.Server.Api.Models.Internal;
+using Tgstation.Server.Api.Models.Request;
 using Tgstation.Server.Api.Models.Response;
 using Tgstation.Server.Client;
 using Tgstation.Server.Client.Components;
+
+using ProductHeaderValue = System.Net.Http.Headers.ProductHeaderValue;
 
 namespace Hoard2.Module.Builtin.SS13
 {
@@ -20,6 +26,8 @@ namespace Hoard2.Module.Builtin.SS13
 		public Uri ServerUri => new Uri(ServerAddress);
 
 		public long DefaultInstance { get; set; }
+
+		public string TestMergeLabelName { get; set; } = "Test Merge Candidate";
 	}
 
 	public class TGSLink : ModuleBase
@@ -177,7 +185,32 @@ namespace Hoard2.Module.Builtin.SS13
 			}
 
 			await command.RespondAsync("caching");
-			var _ = DoDreamDaemonPanel(await command.GetOriginalResponseAsync(), (IGuildUser)command.User, await GetInstanceById(client, instance));
+			_ = DoDreamDaemonPanel(await command.GetOriginalResponseAsync(), (IGuildUser)command.User, await GetInstanceById(client, instance));
+		}
+
+		[ModuleCommand]
+		[CommandGuildOnly]
+		public async Task TestMergeMenu(SocketSlashCommand command, bool markedOnly = true, long instance = -1)
+		{
+			var serverInfo = GetServerInformation(command.GuildId!.Value);
+			if (instance is -1) instance = serverInfo.DefaultInstance;
+
+			if (await GetUserTgsClient(serverInfo.ServerUri, (IGuildUser)command.User) is not { } client)
+			{
+				await command.RespondAsync("Login first.");
+				return;
+			}
+
+			_ = DoTestMergePanel((command, null), (IGuildUser)command.User, await GetInstanceById(client, instance), onlyMarked: markedOnly);
+		}
+
+		[ModuleCommand(GuildPermission.Administrator)]
+		[CommandGuildOnly]
+		public async Task SetTestMergeCandidateLabel(SocketSlashCommand command, string labelName)
+		{
+			var serverInfo = GetServerInformation(command.GuildId!.Value);
+			serverInfo.TestMergeLabelName = labelName;
+			await command.RespondAsync("Updated the label name.");
 		}
 
 		// (user, instance) -> (channel, message)
@@ -200,17 +233,10 @@ namespace Hoard2.Module.Builtin.SS13
 			IUserMessage holder,
 			IGuildUser user,
 			IInstanceClient instanceClient,
-			bool kill = false,
 			bool block = false,
 			bool timeout = false)
 		{
 			var currentState = await instanceClient.DreamDaemon.Read(default);
-			if (kill)
-			{
-				await holder.DeleteAsync();
-				return;
-			}
-
 			var blockButtons = block || timeout;
 			var existing = await GetDaemonPanelMessage(user, (long)instanceClient.Metadata.Id!);
 			if (existing is { } && existing.Id != holder.Id)
@@ -223,9 +249,8 @@ namespace Hoard2.Module.Builtin.SS13
 				await timer.DisposeAsync();
 			_daemonPanelTimeoutStore[key] = new Timer(state =>
 			{
-				var stateKey = ((ulong, long))state!;
 				_ = DoDreamDaemonPanel(holder, user, instanceClient, timeout: true);
-			}, key, TimeSpan.FromSeconds(15), Timeout.InfiniteTimeSpan);
+			}, null, TimeSpan.FromSeconds(15), Timeout.InfiniteTimeSpan);
 
 			var embedData = new EmbedBuilder()
 				.WithTitle($"Dream Daemon - {instanceClient.Metadata.Name!}")
@@ -251,8 +276,15 @@ namespace Hoard2.Module.Builtin.SS13
 				.WithDisabled(blockButtons || currentState.Status is not WatchdogStatus.Offline)
 				.Build();
 
+			var compileButton = CreateButton($"dm-compile-{instanceClient.Metadata.Id}", user.Id)
+				.WithLabel("Compile")
+				.WithStyle(ButtonStyle.Primary)
+				.WithDisabled(blockButtons)
+				.Build();
+
 			var componentBuilder = new ComponentBuilder()
-				.AddRow(new ActionRowBuilder().WithComponents(new List<IMessageComponent> { launchButton, shutdownButton }));
+				.AddRow(new ActionRowBuilder().WithComponents(new List<IMessageComponent> { launchButton, shutdownButton }))
+				.AddRow(new ActionRowBuilder().WithComponents(new List<IMessageComponent> { compileButton }));
 
 			await holder.ModifyAsync(props =>
 			{
@@ -262,22 +294,160 @@ namespace Hoard2.Module.Builtin.SS13
 			});
 		}
 
+		Dictionary<(ulong, long), Timer> _testMergePanelTimeoutStore = new Dictionary<(ulong, long), Timer>();
+		Dictionary<(ulong, long), SelectMenuBuilder> _testMergePanelMenuStore = new Dictionary<(ulong, long), SelectMenuBuilder>();
+		public async Task DoTestMergePanel(
+			(SocketSlashCommand?, IUserMessage?) holder,
+			IGuildUser user,
+			IInstanceClient instanceClient,
+			bool finished = false,
+			bool onlyMarked = true
+		)
+		{
+			await (holder.Item1?.DeferAsync() ?? Task.CompletedTask);
+
+			var currentState = await instanceClient.Repository.Read(default);
+			var userGhToken = GuildConfig(user.GuildId).Get("user-gh-token-map", new Dictionary<ulong, string?>())!.GetValueOrDefault(user.Id, null);
+			var ghClient = new GitHubClient(new Octokit.ProductHeaderValue("TgsLink"),
+				new InMemoryCredentialStore(userGhToken is null ? Credentials.Anonymous : new Credentials(userGhToken)));
+
+			var key = (user.Id, instanceClient.Metadata.Id!.Value);
+			if (_testMergePanelTimeoutStore.TryGetValue(key, out var timer))
+				await timer.DisposeAsync();
+
+			if (finished)
+			{
+				await holder.Item2!.ModifyAsync(props =>
+				{
+					var replacementMenu = _testMergePanelMenuStore[key].WithDisabled(true);
+					props.Content = "Test Merge Panel Outdated.";
+					props.Components = new Optional<MessageComponent>(new ComponentBuilder()
+						.WithSelectMenu(replacementMenu)
+						.Build());
+				});
+				return;
+			}
+
+			var repositoryTMs = currentState.RevisionInformation?.ActiveTestMerges ?? new List<TestMerge>();
+			var githubPRs = await ghClient.PullRequest.GetAllForRepository(currentState.RemoteRepositoryOwner, currentState.RemoteRepositoryName);
+			var testMergeMenu = CreateMenu($"repo-tmpanel-{instanceClient.Metadata.Id}")
+				.WithPlaceholder("Select Pulls to Test Merge")
+				.WithType(ComponentType.SelectMenu)
+				.WithMinValues(0);
+			_testMergePanelMenuStore[key] = testMergeMenu;
+
+			var existingTms = githubPRs.Where(ghPr => repositoryTMs.Any(rTm => rTm.Number == ghPr.Number)).ToList();
+			var availablePrs = githubPRs.Where(ghPr => !existingTms.Contains(ghPr)).ToList();
+
+			var testMergeLabelName = GetServerInformation(user.GuildId).TestMergeLabelName;
+			if (onlyMarked)
+				availablePrs = availablePrs.Where(pr => pr.Labels.Any(label => label.Name == testMergeLabelName)).ToList();
+
+			var totalOptions = existingTms.Count + availablePrs.Count;
+			if (totalOptions > 25)
+			{
+				await holder.Item1!.RespondAsync(
+					onlyMarked ?
+						"Too many active test merges and marked pull requests. Please perform this on the web-panel or reduce marked PR count." :
+						"Too many possible pull requests. Please try again with only marked pulls.");
+				return;
+			}
+			testMergeMenu.WithMaxValues(totalOptions);
+
+			string Truncate(string @string, int length)
+			{
+				if (@string.Length > length)
+					return @string[..(length - 3)] + "...";
+				return @string;
+			}
+
+			foreach (var existingTm in existingTms.OrderBy(tm => tm.Number))
+			{
+				var title = Truncate($"#{existingTm.Number} - {existingTm.Title}", 100);
+				testMergeMenu.AddOption(title, existingTm.Number.ToString(), isDefault: true);
+			}
+
+			foreach (var availableTm in availablePrs)
+			{
+				var title = Truncate($"#{availableTm.Number} - {availableTm.Title}", 100);
+				testMergeMenu.AddOption(title, availableTm.Number.ToString());
+			}
+
+			var components = new ComponentBuilder()
+				.WithSelectMenu(testMergeMenu)
+				.Build();
+			await holder.Item1!.ModifyOriginalResponseAsync(props =>
+				{
+					props.Content = $"Test Merge Menu - {instanceClient.Metadata.Name}";
+					props.Components = new Optional<MessageComponent>(components);
+				}
+			);
+
+			_testMergePanelTimeoutStore[(user.Id, instanceClient.Metadata.Id!.Value)] = new Timer(_ =>
+			{
+				holder.Item1.GetOriginalResponseAsync().GetAwaiter().GetResult().ModifyAsync(props =>
+				{
+					props.Content = "Test Merge Menu Outdated.";
+					props.Components = new Optional<MessageComponent>(new ComponentBuilder().WithSelectMenu(_testMergePanelMenuStore[key].WithDisabled(true)).Build());
+				});
+			}, null, TimeSpan.FromSeconds(30), Timeout.InfiniteTimeSpan);
+		}
+
 		public override async Task OnButton(string buttonId, SocketMessageComponent button)
 		{
 			var data = buttonId.Split('-');
+			var serverClient = await GetUserTgsClient(GetServerInformation(button.GuildId!.Value).ServerUri, (IGuildUser)button.User);
+			long? instance = data.Length >= 2 ? Int64.Parse(data[2]) : null;
+			var instanceClient = serverClient is { } && instance is { } ? await GetInstanceById(serverClient, instance.Value) : null;
 			switch (data[0])
 			{
-				case "dd":
-					var serverClient = await GetUserTgsClient(GetServerInformation(button.GuildId!.Value).ServerUri, (IGuildUser)button.User);
-					if (serverClient is null)
+				case "dm":
+					switch (data[1])
 					{
-						await button.RespondAsync("You are not logged in.", ephemeral: true);
-						return;
+						case "compile":
+							string GetProgressBar(int percentage, ushort barLength)
+							{
+								switch (percentage)
+								{
+									case >= 100: return new string('=', barLength);
+									case <= 0:   return new string(' ', barLength);
+
+									default:
+										var barsFilled = (ushort)Math.Floor(percentage * barLength / 100f);
+										return new string('=', barsFilled) + new string(' ', barLength - barsFilled);
+								}
+							}
+
+							await button.RespondAsync("compilation started", ephemeral: true);
+							var originalMessage = await button.Channel.SendMessageAsync("caching");
+							var job = await instanceClient!.DreamMaker.Compile(default);
+							var lastProgress = 0;
+							do
+							{
+								job = await instanceClient.Jobs.GetId(job, default);
+								if (job.Progress.HasValue && job.Progress.Value != lastProgress)
+								{
+									lastProgress = job.Progress.Value;
+									await originalMessage.ModifyAsync(props => props.Content = $"Compiling:\n`{job.Stage}`\n`[{GetProgressBar(job.Progress!.Value, 10)}] {job.Progress.Value}%`");
+								}
+								await Task.Delay(125);
+							}
+							while (job.StoppedAt is null);
+
+							if (job.ExceptionDetails is { })
+								await originalMessage.ModifyAsync(props => props.Content = $"Failed to Compile: `{job.ExceptionDetails}`");
+							else
+								await originalMessage.ModifyAsync(props => props.Content = "Compilation Successful.");
+							return;
+
+						default:
+							throw new NotImplementedException($"Unknown dd action: {data[1]}");
 					}
 
-					var instance = Int64.Parse(data[2]);
-					var instanceClient = await GetInstanceById(serverClient, instance);
-					var panelMessage = (await GetDaemonPanelMessage(button.User, instance))!;
+				case "dd":
+					if (instance is null || instanceClient is null)
+						return;
+					var panelMessage = (await GetDaemonPanelMessage(button.User, instance.Value))!;
 					switch (data[1])
 					{
 						case "shutdown":
@@ -305,6 +475,59 @@ namespace Hoard2.Module.Builtin.SS13
 
 				default:
 					throw new NotImplementedException($"Unknown button handler: {data[0]}");
+			}
+		}
+
+		public override async Task OnMenu(string menuId, SocketMessageComponent menu)
+		{
+			var data = menuId.Split('-');
+			switch (data[0])
+			{
+				case "repo":
+					var action = data[1];
+					var instanceId = Int64.Parse(data[2]);
+					var serverInfo = GetServerInformation(menu.GuildId!.Value);
+					var tgsClient = await GetUserTgsClient(serverInfo.ServerUri, (IGuildUser)menu.User);
+					if (tgsClient is null)
+						return;
+					var instanceClient = await GetInstanceById(tgsClient, instanceId);
+					switch (action)
+					{
+						case "tmpanel":
+							_ = DoTestMergePanel((null, menu.Message), (IGuildUser)menu.User, instanceClient, finished: true);
+							await menu.RespondAsync("Updating TMs...");
+
+							var expectedTms = menu.Data.Values.Select(Int32.Parse);
+							var repositoryRequest = new RepositoryUpdateRequest
+							{
+								UpdateFromOrigin = true,
+								Reference = (await instanceClient.Repository.Read(default)).Reference,
+								NewTestMerges = expectedTms.Select(tm => new TestMergeParameters { Number = tm }).ToList(),
+							};
+							var updateResponse = await instanceClient.Repository.Update(repositoryRequest, default);
+							var job = updateResponse.ActiveJob;
+							if (job is { })
+							{
+								do
+									job = await instanceClient.Jobs.GetId(job, default);
+								while (job.StoppedAt is null);
+
+								if (job.ExceptionDetails is { })
+								{
+									await menu.ModifyOriginalResponseAsync(props => props.Content = $"Failed to update TMs: `{job.ExceptionDetails}`");
+									return;
+								}
+							}
+
+							await menu.ModifyOriginalResponseAsync(props => props.Content = "Updated TMs.");
+							return;
+
+						default:
+							throw new NotImplementedException($"Unknown repo action: {action}");
+					}
+
+				default:
+					throw new NotImplementedException($"Unknown menu handler: {data[0]}");
 			}
 		}
 	}
