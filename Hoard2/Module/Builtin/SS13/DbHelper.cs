@@ -78,10 +78,10 @@ namespace Hoard2.Module.Builtin.SS13
 			monthParam.Value = months;
 			monthParam.ParameterName = "months";
 			dbCommand.Parameters.Add(monthParam);
-
+			
 			var commandText = 
 				$"WITH DISTINCT_ROUNDS AS (SELECT DISTINCT ckey, round_id FROM connection_log " +
-				$"WHERE {(ckey is { } ? "ckey LIKE @ckey AND" : "")} datetime >= DATE_ADD(NOW(), INTERVAL - @months MONTH)) " +
+				$"WHERE {(ckey is { } ? "ckey LIKE @ckey AND" : "")} datetime >= DATE_SUB(NOW(), INTERVAL @months MONTH)) " +
 				$"SELECT DISTINCT_ROUNDS.ckey, COUNT(round_id) " +
 				$"FROM DISTINCT_ROUNDS GROUP BY DISTINCT_ROUNDS.ckey ORDER BY COUNT(round_id) DESC LIMIT 20";
 			dbCommand.CommandText = commandText;
