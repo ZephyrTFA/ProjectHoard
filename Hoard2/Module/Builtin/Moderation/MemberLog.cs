@@ -265,7 +265,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			var getAuditType = new List<ActionType>();
 			if (rolesRemoved.Any())
 			{
-				getAuditType.Add(ActionType.RoleUpdated);
+				getAuditType.Add(ActionType.MemberRoleUpdated);
 				somethingChanged = true;
 				var rolesRemovedText = new StringBuilder();
 				foreach (var role in rolesRemoved)
@@ -275,7 +275,7 @@ namespace Hoard2.Module.Builtin.Moderation
 
 			if (rolesAdded.Any())
 			{
-				getAuditType.Add(ActionType.RoleUpdated);
+				getAuditType.Add(ActionType.MemberRoleUpdated);
 				somethingChanged = true;
 				var rolesAddedText = new StringBuilder();
 				foreach (var role in rolesAdded)
@@ -296,7 +296,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			if (getAuditType.Any())
 				foreach (var flag in getAuditType.ToHashSet())
 				{
-					var auditLogEntries = await HoardMain.DiscordClient.GetGuild(newUser.Guild.Id).GetAuditLogsAsync(20, actionType: flag).FlattenAsync();
+					var auditLogEntries = await ((IGuild)newUser.Guild).GetAuditLogsAsync(20, actionType: flag);
 					foreach (var auditEntry in auditLogEntries)
 					{
 						switch (auditEntry.Data)
