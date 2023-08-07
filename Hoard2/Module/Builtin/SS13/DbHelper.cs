@@ -56,8 +56,14 @@ namespace Hoard2.Module.Builtin.SS13
 
 		[ModuleCommand(GuildPermission.Administrator)]
 		[CommandGuildOnly]
-		public async Task GetPlayerRounds(SocketSlashCommand command, string? ckey = null, long months = 1)
+		public async Task GetPlayerRounds(SocketSlashCommand command, string? ckey = null, bool? getAdminsOnly = false, long months = 1)
 		{
+			if (getAdminsOnly is true && ckey is { })
+			{
+				await command.RespondAsync("Cannot specify both admins only and a ckey!", ephemeral: true);
+				return;
+			}
+
 			var (address, schema) = GetDatabaseAddressSchema(command.GuildId!.Value);
 			var (user, pass) = GetDatabaseUserPass(command.GuildId.Value);
 
@@ -79,10 +85,14 @@ namespace Hoard2.Module.Builtin.SS13
 			dbCommand.Parameters.Add(monthParam);
 
 			var ckeyInsert = ckey is { } ? "ckey = @ckey AND" : "";
+			var adminInsert = getAdminsOnly is true ? "INNER JOIN admin ON connection_log.ckey = admin.ckey\n" : "";
 			dbCommand.CommandText =
-				"WITH DISTINCT_ROUNDS AS (SELECT DISTINCT ckey, round_id\n" +
+				"WITH DISTINCT_ROUNDS AS (SELECT DISTINCT connection_log.ckey, round_id\n" +
 				"FROM connection_log\n" +
-				"WHERE " + ckeyInsert + " datetime >= DATE_SUB(NOW(), INTERVAL @months MONTH))\n" +
+				adminInsert +
+				"WHERE " +
+				ckeyInsert +
+				" datetime >= DATE_SUB(NOW(), INTERVAL @months MONTH))\n" +
 				"SELECT DISTINCT_ROUNDS.ckey, COUNT(round_id)\n" +
 				"FROM DISTINCT_ROUNDS\n" +
 				"GROUP BY DISTINCT_ROUNDS.ckey\n" +
