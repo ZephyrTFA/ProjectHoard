@@ -16,6 +16,9 @@ namespace Hoard2.Module.Builtin.Moderation
 
 		public override async Task DiscordClientOnMessageDeleted(SocketMessage message, IMessageChannel channel)
 		{
+			if (message.Author.IsBot)
+				return;
+			
 			var guild = channel.GetGuildId();
 			if (guild == 0 || IsChannelIgnored(channel.Id, guild))
 				return;
@@ -35,13 +38,14 @@ namespace Hoard2.Module.Builtin.Moderation
 		public override async Task DiscordClientOnMessagesBulkDeleted(ReadOnlyCollection<SocketMessage> messages, ISocketMessageChannel channel)
 		{
 			foreach (var message in messages)
-			{
 				await DiscordClientOnMessageDeleted(message, channel);
-			}
 		}
 
 		public override async Task DiscordClientOnMessageUpdated(SocketMessage oldMessage, SocketMessage newMessage, ISocketMessageChannel channel)
 		{
+			if (newMessage.Author.IsBot)
+				return;
+			
 			var guild = channel.GetGuildId();
 			if (guild == 0 || IsChannelIgnored(channel.Id, guild))
 				return;
