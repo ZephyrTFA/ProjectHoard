@@ -93,8 +93,8 @@ namespace Hoard2.Util
 			var parameters = command.GetParameters().Skip(1).ToList();
 			var paramInfo = parameters.Select(ParameterInformation.GenerateParameterInformation).ToImmutableList();
 
-			var guildOnly = command.GetCustomAttribute<ModuleBase.CommandGuildOnlyAttribute>() is { };
-			var dmOnly = command.GetCustomAttribute<ModuleBase.CommandDmOnlyAttribute>() is { };
+			var guildOnly = command.GetCustomAttribute<ModuleBase.CommandGuildOnlyAttribute>() is not null;
+			var dmOnly = command.GetCustomAttribute<ModuleBase.CommandDmOnlyAttribute>() is not null;
 
 			return new ModuleCommandInformation(name, desc, paramInfo, command, permissions, guildOnly, dmOnly);
 		}
@@ -125,7 +125,7 @@ namespace Hoard2.Util
 
 		public static ModuleCommandMap GenerateCommandMap(Type moduleType)
 		{
-			var commandMethods = moduleType.GetMethods().Where(method => method.GetCustomAttribute<ModuleBase.ModuleCommandAttribute>() is { }).ToList();
+			var commandMethods = moduleType.GetMethods().Where(method => method.GetCustomAttribute<ModuleBase.ModuleCommandAttribute>() is not null).ToList();
 			commandMethods.Sort((left, right) => String.Compare(left.Name, right.Name, StringComparison.Ordinal));
 			var commands = commandMethods.Select(ModuleCommandInformation.GenerateCommandInformation).ToImmutableList();
 			return new ModuleCommandMap(moduleType, commands);

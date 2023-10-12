@@ -114,7 +114,8 @@ namespace Hoard2.Module.Builtin.SS13
 					}
 				}
 
-				var durationString = jsonDict.TryGetValue("round_duration", out var durationSeconds) && durationSeconds is { } ?
+				var durationString = jsonDict.TryGetValue("round_duration", out var durationSeconds) && durationSeconds is not null
+					?
 					TimeSpan.FromSeconds(Double.Parse(durationSeconds)).ToString("hh\\:mm\\:ss") : "!NULL!";
 				await message.ModifyAsync(props =>
 				{

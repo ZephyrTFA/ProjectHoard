@@ -20,7 +20,7 @@ namespace Hoard2.Util
 				await command.ModifyOriginalResponseAsync(props =>
 				{
 					props.Content = message;
-					if (allowedMentions is { })
+					if (allowedMentions is not null)
 						props.AllowedMentions = allowedMentions;
 				});
 			else

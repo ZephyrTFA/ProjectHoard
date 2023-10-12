@@ -239,7 +239,7 @@ namespace Hoard2.Module.Builtin.SS13
 			var currentState = await instanceClient.DreamDaemon.Read(default);
 			var blockButtons = block || timeout;
 			var existing = await GetDaemonPanelMessage(user, (long)instanceClient.Metadata.Id!);
-			if (existing is { } && existing.Id != holder.Id)
+			if (existing is not null && existing.Id != holder.Id)
 				await existing.DeleteAsync();
 
 			var key = (user.Id, (long)instanceClient.Metadata.Id);
@@ -393,7 +393,7 @@ namespace Hoard2.Module.Builtin.SS13
 			var data = buttonId.Split('-');
 			var serverClient = await GetUserTgsClient(GetServerInformation(button.GuildId!.Value).ServerUri, (IGuildUser)button.User);
 			long? instance = data.Length >= 2 ? Int64.Parse(data[2]) : null;
-			var instanceClient = serverClient is { } && instance is { } ? await GetInstanceById(serverClient, instance.Value) : null;
+			var instanceClient = serverClient is not null && instance is not null ? await GetInstanceById(serverClient, instance.Value) : null;
 			switch (data[0])
 			{
 				case "dm":
@@ -429,7 +429,7 @@ namespace Hoard2.Module.Builtin.SS13
 							}
 							while (job.StoppedAt is null);
 
-							if (job.ExceptionDetails is { })
+							if (job.ExceptionDetails is not null)
 								await originalMessage.ModifyAsync(props => props.Content = $"Failed to Compile: `{job.ExceptionDetails}`");
 							else
 								await originalMessage.ModifyAsync(props => props.Content = "Compilation Successful.");
@@ -501,13 +501,13 @@ namespace Hoard2.Module.Builtin.SS13
 							};
 							var updateResponse = await instanceClient.Repository.Update(repositoryRequest, default);
 							var job = updateResponse.ActiveJob;
-							if (job is { })
+							if (job is not null)
 							{
 								do
 									job = await instanceClient.Jobs.GetId(job, default);
 								while (job.StoppedAt is null);
 
-								if (job.ExceptionDetails is { })
+								if (job.ExceptionDetails is not null)
 								{
 									await menu.ModifyOriginalResponseAsync(props => props.Content = $"Failed to update TMs: `{job.ExceptionDetails}`");
 									return;

@@ -130,7 +130,7 @@ namespace Hoard2.Module.Builtin.SS13
 
             if (targetCkey is not null)
             {
-                if (GetLinkedDiscordAccountFor(command.GuildId!.Value, targetCkey) is not { } discordId)
+                if (await GetLinkedDiscordAccountFor(command.GuildId!.Value, targetCkey) is not { } discordId)
                 {
                     await command.RespondAsync(
                         "There is no discord account linked to that ckey or the database setup is invalid.");
@@ -142,7 +142,7 @@ namespace Hoard2.Module.Builtin.SS13
                 return;
             }
 
-            if (GetLinkedByondAccountFor(targetUser!) is not { } ckey)
+            if (await GetLinkedByondAccountFor(targetUser!) is not { } ckey)
             {
                 await command.RespondAsync("Their account is not linked or the database setup is invalid.");
                 return;
@@ -157,7 +157,7 @@ namespace Hoard2.Module.Builtin.SS13
         public async Task GetPlayerRounds(SocketSlashCommand command, string? ckey = null, bool? getAdminsOnly = false,
             long months = 1)
         {
-            if (getAdminsOnly is true && ckey is { })
+            if (getAdminsOnly is true && ckey is not null)
             {
                 await command.RespondAsync("Cannot specify both admins only and a ckey!", ephemeral: true);
                 return;
@@ -170,8 +170,8 @@ namespace Hoard2.Module.Builtin.SS13
             await dbClient.OpenAsync();
 
             var dbCommand = dbClient.CreateCommand();
-            var ckeyParam = ckey is { } ? dbCommand.CreateParameter() : null;
-            if (ckeyParam is { })
+            var ckeyParam = ckey is not null ? dbCommand.CreateParameter() : null;
+            if (ckeyParam is not null)
             {
                 ckeyParam.Value = ckey;
                 ckeyParam.ParameterName = "ckey";

@@ -94,11 +94,11 @@ namespace Hoard2.Module.Builtin.Moderation
 			var unbanChannel = await GetChannel(command.GuildId!.Value, ChannelUnban);
 			var updateChannel = await GetChannel(command.GuildId!.Value, ChannelUpdate);
 
-			var joinText = joinChannel is { } ? $"<#{joinChannel.Id}>" : "Not Set";
-			var leaveText = leaveChannel is { } ? $"<#{leaveChannel.Id}>" : "Not Set";
-			var banText = banChannel is { } ? $"<#{banChannel.Id}>" : "Not Set";
-			var unbanText = unbanChannel is { } ? $"<#{unbanChannel.Id}>" : "Not Set";
-			var updateText = updateChannel is { } ? $"<#{updateChannel.Id}>" : "Not Set";
+			var joinText = joinChannel is not null ? $"<#{joinChannel.Id}>" : "Not Set";
+			var leaveText = leaveChannel is not null ? $"<#{leaveChannel.Id}>" : "Not Set";
+			var banText = banChannel is not null ? $"<#{banChannel.Id}>" : "Not Set";
+			var unbanText = unbanChannel is not null ? $"<#{unbanChannel.Id}>" : "Not Set";
+			var updateText = updateChannel is not null ? $"<#{updateChannel.Id}>" : "Not Set";
 
 			await command.RespondAsync("Channel Map", embed:
 				new EmbedBuilder()
@@ -157,7 +157,7 @@ namespace Hoard2.Module.Builtin.Moderation
 					return true;
 				return false;
 			});
-			var moderator = entry is { } ? $"<@!{entry.User.Id}>" : "Unknown Moderator";
+			var moderator = entry is not null ? $"<@!{entry.User.Id}>" : "Unknown Moderator";
 			var ban = await guild.GetBanAsync(user);
 			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
 				.WithAuthor(user)
@@ -193,7 +193,7 @@ namespace Hoard2.Module.Builtin.Moderation
 				return false;
 			});
 
-			var moderator = entry is { } ? $"<@!{entry.User.Id}>" : "Unknown Moderator";
+			var moderator = entry is not null ? $"<@!{entry.User.Id}>" : "Unknown Moderator";
 			await messageChannel.SendMessageAsync(embed: new EmbedBuilder()
 				.WithAuthor(user)
 				.WithCurrentTimestamp()
@@ -212,7 +212,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			if (GuildConfig(socketGuild.Id).Get<ulong?>(ChannelLeave) is not { } channelId)
 				return;
 
-			if (await socketGuild.GetBanAsync(socketUser) is { })
+			if (await socketGuild.GetBanAsync(socketUser) is not null)
 				return;
 
 			var channel = await HoardMain.DiscordClient.GetChannelAsync(channelId);

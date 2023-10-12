@@ -57,13 +57,13 @@ namespace Hoard2.Module.Builtin.Afterglow
 			var checkStore = GetVerifications(command.GuildId!.Value);
 			var existing = checkStore.FirstOrDefault(entry => entry.Verified == user.Id);
 
-			if (existing is { } && ageChecked && !existing.AgeChecked)
+			if (existing is not null && ageChecked && !existing.AgeChecked)
 			{
 				checkStore.Remove(existing);
 				existing = null;
 			}
 
-			if (existing is { })
+			if (existing is not null)
 			{
 				await command.RespondAsync($"{user.Mention} is already verified.", ephemeral: true, allowedMentions: AllowedMentions.None);
 				await ApplyVerificationRolesTo((SocketGuildUser)user, existing.AgeChecked);

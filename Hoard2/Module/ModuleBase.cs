@@ -116,7 +116,7 @@ namespace Hoard2.Module
 				}
 			if (match is null)
 				return null;
-			if (match.Value.Item2 is { } && match.Value.Item2.Value != menu.User.Id)
+			if (match.Value.Item2 is not null && match.Value.Item2.Value != menu.User.Id)
 				return null;
 			return menuIdActual;
 		}
@@ -163,7 +163,7 @@ namespace Hoard2.Module
 				}
 			if (match is null)
 				return null;
-			if (match.Value.Item2 is { } && match.Value.Item2.Value != button.User.Id)
+			if (match.Value.Item2 is not null && match.Value.Item2.Value != button.User.Id)
 				return null;
 			return buttonIdActual;
 		}
