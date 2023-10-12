@@ -19,7 +19,6 @@ namespace Hoard2.Module.Builtin.SS13
         private async Task<MySqlDataReader?> Query(ulong guild, string query,
             Dictionary<string, object?>? arguments = null)
         {
-            MySqlTransaction? transaction = null;
             try
             {
                 var (address, schema) = GetDatabaseAddressSchema(guild);
@@ -29,7 +28,6 @@ namespace Hoard2.Module.Builtin.SS13
                     new MySqlConnection($"Server={address};Database={schema};UID={user};PWD={pass}");
                 await dbClient.OpenAsync();
 
-                transaction = await dbClient.BeginTransactionAsync();
                 var command = dbClient.CreateCommand();
                 command.CommandText = query;
 
@@ -44,14 +42,12 @@ namespace Hoard2.Module.Builtin.SS13
 
                 await command.PrepareAsync();
                 var result =  await command.ExecuteReaderAsync();
-                await transaction.CommitAsync();
                 return result;
             }
             catch (Exception exception)
             {
                 HoardMain.Logger.LogError("Exception during query execution: {Query} -> {Exception}", query,
                     exception.Message);
-                await (transaction?.RollbackAsync() ?? Task.CompletedTask);
                 return null;
             }
         }
@@ -75,6 +71,7 @@ namespace Hoard2.Module.Builtin.SS13
                 {
                     { "id", target.Id }
                 });
+            await (result?.ReadAsync() ?? Task.CompletedTask);
             return result?.GetString("ckey");
         }
 
@@ -85,6 +82,7 @@ namespace Hoard2.Module.Builtin.SS13
                 {
                     { "ckey", ckey }
                 });
+            await (result?.ReadAsync() ?? Task.CompletedTask);
             return result?.GetUInt64("discord_id");
         }
 
