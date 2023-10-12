@@ -25,7 +25,7 @@ namespace Hoard2.Module.Builtin.SS13
                 var (address, schema) = GetDatabaseAddressSchema(guild);
                 var (user, pass) = GetDatabaseUserPass(guild);
 
-                await using var dbClient =
+                var dbClient =
                     new MySqlConnection($"Server={address};Database={schema};UID={user};PWD={pass}");
                 await dbClient.OpenAsync();
 
@@ -43,7 +43,9 @@ namespace Hoard2.Module.Builtin.SS13
                     }
 
                 await command.PrepareAsync();
-                return await command.ExecuteReaderAsync();
+                var result =  await command.ExecuteReaderAsync();
+                await transaction.CommitAsync();
+                return result;
             }
             catch (Exception exception)
             {
