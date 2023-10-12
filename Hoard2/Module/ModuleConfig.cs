@@ -13,9 +13,9 @@ namespace Hoard2.Module
 			typeof(List<ulong>),
 		};
 
-		readonly List<Type> _moduleKnownTypes;
+		private readonly List<Type> _moduleKnownTypes;
 
-		Dictionary<string, object> _configData = new Dictionary<string, object>();
+		private Dictionary<string, object> _configData = new Dictionary<string, object>();
 		public ModuleConfig(string filePath, List<Type>? knownTypes = null)
 		{
 			_moduleKnownTypes = knownTypes ?? new List<Type>();
@@ -28,7 +28,7 @@ namespace Hoard2.Module
 				Read();
 		}
 
-		FileInfo StoreInfo { get; }
+		private FileInfo StoreInfo { get; }
 
 		public T? Get<T>(string key, T? defaultValue = default)
 		{

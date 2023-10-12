@@ -43,7 +43,7 @@ namespace Hoard2
 			return Task.CompletedTask;
 		}
 
-		static Task HandleDiscordLog(LogMessage message)
+		private static Task HandleDiscordLog(LogMessage message)
 		{
 			var level = message.Severity switch
 			{

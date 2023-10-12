@@ -3,7 +3,7 @@ namespace Hoard2
 {
 	public class Worker : BackgroundService
 	{
-		readonly ILogger<Worker> _logger;
+		private readonly ILogger<Worker> _logger;
 
 		public Worker(ILogger<Worker> logger)
 		{

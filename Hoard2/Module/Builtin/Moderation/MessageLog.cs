@@ -62,7 +62,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			await logChannel.SendMessageAsync(embed: updateEmbed.Build());
 		}
 
-		bool TryGetChannel(ulong guild, [NotNullWhen(true)] out ISocketMessageChannel? channel)
+		private bool TryGetChannel(ulong guild, [NotNullWhen(true)] out ISocketMessageChannel? channel)
 		{
 			channel = null;
 			if (!GuildConfig(guild).TryGet("log-channel", out ulong channelId))
@@ -125,7 +125,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			await command.SendOrModifyOriginalResponse(resp.ToString());
 		}
 
-		bool IsChannelIgnored(ulong channel, ulong guild)
+		private bool IsChannelIgnored(ulong channel, ulong guild)
 		{
 			var ignored = GuildConfig(guild).Get("ignored-channels", new List<ulong>());
 			if (ignored!.Contains(channel)) return true;
@@ -137,7 +137,7 @@ namespace Hoard2.Module.Builtin.Moderation
 				.Any(category => category.Channels.Any(inner => inner.Id == channel));
 		}
 
-		void SetIgnoredCategory(ulong category, ulong guild, bool ignore)
+		private void SetIgnoredCategory(ulong category, ulong guild, bool ignore)
 		{
 			var config = GuildConfig(guild);
 			var ignored = config.Get("ignored-categories", new List<ulong>())!;
@@ -158,7 +158,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			config.Set("ignored-categories", ignored);
 		}
 
-		void SetIgnoredChannel(ulong channel, ulong guild, bool ignore)
+		private void SetIgnoredChannel(ulong channel, ulong guild, bool ignore)
 		{
 			var config = GuildConfig(guild);
 			var ignored = config.Get("ignored-channels", new List<ulong>())!;

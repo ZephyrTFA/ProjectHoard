@@ -57,7 +57,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			await command.RespondAsync($"Updated the target log channel to <#{channel.Id}>");
 		}
 
-		async Task<IMessageChannel?> GetChannel(ulong guild, string key)
+		private async Task<IMessageChannel?> GetChannel(ulong guild, string key)
 		{
 			if (!GuildConfig(guild).TryGet<ulong>(key, out var channelId))
 				return null;

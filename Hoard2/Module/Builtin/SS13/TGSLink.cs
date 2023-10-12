@@ -45,11 +45,11 @@ namespace Hoard2.Module.Builtin.SS13
 
 		public void SetServerInformation(ulong guild, TgsServerInformation info) => GuildConfig(guild).Set("server-info", info);
 
-		Dictionary<ulong, TokenResponse> _userTokenMap = new Dictionary<ulong, TokenResponse>();
-		Dictionary<ulong, IServerClient> _userClientMap = new Dictionary<ulong, IServerClient>();
-		ServerClientFactory _userTgsClientFactory = new ServerClientFactory(new ProductHeaderValue("ProjectHoard-TgsLink"));
+		private Dictionary<ulong, TokenResponse> _userTokenMap = new Dictionary<ulong, TokenResponse>();
+		private Dictionary<ulong, IServerClient> _userClientMap = new Dictionary<ulong, IServerClient>();
+		private ServerClientFactory _userTgsClientFactory = new ServerClientFactory(new ProductHeaderValue("ProjectHoard-TgsLink"));
 
-		async Task<IServerClient?> GetUserTgsClient(Uri server, IGuildUser user)
+		private async Task<IServerClient?> GetUserTgsClient(Uri server, IGuildUser user)
 		{
 			if (_userClientMap.TryGetValue(user.Id, out var existingClient))
 				if (existingClient.Token.ExpiresAt.CompareTo(DateTimeOffset.Now) > 0)
@@ -63,7 +63,7 @@ namespace Hoard2.Module.Builtin.SS13
 			return null;
 		}
 
-		async Task<bool> DoUserLogin(Uri server, IUser user, string username, string password)
+		private async Task<bool> DoUserLogin(Uri server, IUser user, string username, string password)
 		{
 			var userClient = await _userTgsClientFactory.CreateFromLogin(server, username, password);
 			if (userClient.Token.Bearer is null) return false;
@@ -214,10 +214,10 @@ namespace Hoard2.Module.Builtin.SS13
 		}
 
 		// (user, instance) -> (channel, message)
-		Dictionary<(ulong, long), (ulong, ulong)> _daemonPanelStore = new Dictionary<(ulong, long), (ulong, ulong)>();
-		Dictionary<(ulong, long), Timer> _daemonPanelTimeoutStore = new Dictionary<(ulong, long), Timer>();
+		private Dictionary<(ulong, long), (ulong, ulong)> _daemonPanelStore = new Dictionary<(ulong, long), (ulong, ulong)>();
+		private Dictionary<(ulong, long), Timer> _daemonPanelTimeoutStore = new Dictionary<(ulong, long), Timer>();
 
-		async Task<IUserMessage?> GetDaemonPanelMessage(IUser user, long instance)
+		private async Task<IUserMessage?> GetDaemonPanelMessage(IUser user, long instance)
 		{
 			if (!_daemonPanelStore.TryGetValue((user.Id, instance), out var match))
 				return null;
@@ -294,8 +294,8 @@ namespace Hoard2.Module.Builtin.SS13
 			});
 		}
 
-		Dictionary<(ulong, long), Timer> _testMergePanelTimeoutStore = new Dictionary<(ulong, long), Timer>();
-		Dictionary<(ulong, long), SelectMenuBuilder> _testMergePanelMenuStore = new Dictionary<(ulong, long), SelectMenuBuilder>();
+		private Dictionary<(ulong, long), Timer> _testMergePanelTimeoutStore = new Dictionary<(ulong, long), Timer>();
+		private Dictionary<(ulong, long), SelectMenuBuilder> _testMergePanelMenuStore = new Dictionary<(ulong, long), SelectMenuBuilder>();
 		public async Task DoTestMergePanel(
 			(SocketSlashCommand?, IUserMessage?) holder,
 			IGuildUser user,

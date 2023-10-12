@@ -60,7 +60,8 @@ namespace Hoard2.Util
 		public readonly string Name;
 		public readonly ImmutableList<ParameterInformation> Parameters;
 		public readonly GuildPermission? Permission;
-		ModuleCommandInformation(string name, string desc, ImmutableList<ParameterInformation> parameters, MethodInfo caller, GuildPermission? permissions, bool guildOnly, bool dmOnly)
+
+		private ModuleCommandInformation(string name, string desc, ImmutableList<ParameterInformation> parameters, MethodInfo caller, GuildPermission? permissions, bool guildOnly, bool dmOnly)
 		{
 			Name = name;
 			Desc = desc;
@@ -104,7 +105,8 @@ namespace Hoard2.Util
 		public readonly ImmutableList<ModuleCommandInformation> Commands;
 
 		public readonly Type Module;
-		ModuleCommandMap(Type module, ImmutableList<ModuleCommandInformation> commands)
+
+		private ModuleCommandMap(Type module, ImmutableList<ModuleCommandInformation> commands)
 		{
 			Module = module;
 			Commands = commands;

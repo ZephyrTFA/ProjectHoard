@@ -15,11 +15,11 @@ namespace Hoard2.Module.Builtin.Afterglow
 			typeof(AgeCheckInformation),
 		};
 
-		List<AgeCheckInformation> GetVerifications(ulong guild) => GuildConfig(guild).Get("age-checks", new List<AgeCheckInformation>())!;
+		private List<AgeCheckInformation> GetVerifications(ulong guild) => GuildConfig(guild).Get("age-checks", new List<AgeCheckInformation>())!;
 
-		void SetVerifications(ulong guild, List<AgeCheckInformation> checks) => GuildConfig(guild).Set("age-checks", checks);
+		private void SetVerifications(ulong guild, List<AgeCheckInformation> checks) => GuildConfig(guild).Set("age-checks", checks);
 
-		async Task ApplyVerificationRolesTo(SocketGuildUser user, bool ageChecked)
+		private async Task ApplyVerificationRolesTo(SocketGuildUser user, bool ageChecked)
 		{
 			var config = GuildConfig(user.Guild.Id);
 			var verifiedRole = config.Get<ulong>("role-verify");

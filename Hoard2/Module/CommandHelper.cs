@@ -7,7 +7,7 @@ namespace Hoard2.Module
 {
 	public static class CommandHelper
 	{
-		static readonly Dictionary<Type, ModuleCommandMap> CommandMaps = new Dictionary<Type, ModuleCommandMap>();
+		private static readonly Dictionary<Type, ModuleCommandMap> CommandMaps = new Dictionary<Type, ModuleCommandMap>();
 
 		public static void ParseModuleCommands(Type module)
 		{

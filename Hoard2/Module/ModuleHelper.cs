@@ -23,8 +23,8 @@ namespace Hoard2.Module
 	{
 		internal static readonly Dictionary<string, Type> TypeMap = new Dictionary<string, Type>();
 		internal static readonly Dictionary<Type, ModuleBase> InstanceMap = new Dictionary<Type, ModuleBase>();
-		static readonly Dictionary<Type, uint> LoadCount = new Dictionary<Type, uint>();
-		static readonly Dictionary<ulong, ICollection<Type>> LoadedMap = new Dictionary<ulong, ICollection<Type>>();
+		private static readonly Dictionary<Type, uint> LoadCount = new Dictionary<Type, uint>();
+		private static readonly Dictionary<ulong, ICollection<Type>> LoadedMap = new Dictionary<ulong, ICollection<Type>>();
 		internal static DirectoryInfo ModuleDataStorageDirectory = null!;
 
 		public static readonly Type[] InnateModules =
@@ -33,7 +33,7 @@ namespace Hoard2.Module
 			typeof(UserDataHelper),
 		};
 
-		static bool _doForAllWorking;
+		private static bool _doForAllWorking;
 
 		public static bool IsModuleLoaded(ulong guild, Type moduleType)
 		{
@@ -78,7 +78,7 @@ namespace Hoard2.Module
 			}
 		}
 
-		static bool DoLoadModule(ulong guild, Type moduleType, out string failReason)
+		private static bool DoLoadModule(ulong guild, Type moduleType, out string failReason)
 		{
 			var module = ConstructModule(moduleType);
 			if (!module.TryLoad(guild, out failReason))
@@ -105,7 +105,7 @@ namespace Hoard2.Module
 			DoUnloadModule(guild, moduleType);
 		}
 
-		static void DoUnloadModule(ulong guild, Type moduleType)
+		private static void DoUnloadModule(ulong guild, Type moduleType)
 		{
 			var instance = InstanceMap[moduleType];
 			instance.OnUnload(guild);
@@ -125,7 +125,7 @@ namespace Hoard2.Module
 			UpdateRestoreInformation();
 		}
 
-		static ModuleBase ConstructModule(Type moduleType)
+		private static ModuleBase ConstructModule(Type moduleType)
 		{
 			if (InstanceMap.TryGetValue(moduleType, out var module))
 				return module;
@@ -149,8 +149,8 @@ namespace Hoard2.Module
 		{
 			TypeMap.Clear();
 		}
-		
-		static async Task DoForAll(ulong matchGuild, Func<ModuleBase, Task> action)
+
+		private static async Task DoForAll(ulong matchGuild, Func<ModuleBase, Task> action)
 		{
 			while (_doForAllWorking)
 				await Task.Yield();
@@ -250,7 +250,7 @@ namespace Hoard2.Module
 
 		public static async Task DiscordClientOnInviteDeleted(SocketGuildChannel oldInviteChannel, string oldInviteUrl) => await DoForAll(oldInviteChannel.GetGuildId(), async module => await module.DiscordClientOnInviteDeleted(oldInviteChannel, oldInviteUrl));
 
-		static Dictionary<ulong, string[]>? GetModulesToRestore()
+		private static Dictionary<ulong, string[]>? GetModulesToRestore()
 		{
 			var storePath = Path.Join(ModuleDataStorageDirectory.FullName, "module_persistence_map.xml");
 			if (!File.Exists(storePath))
@@ -260,7 +260,7 @@ namespace Hoard2.Module
 			return (Dictionary<ulong, string[]>)deserializer.ReadObject(store)!;
 		}
 
-		static void UpdateRestoreInformation()
+		private static void UpdateRestoreInformation()
 		{
 			var storePath = Path.Join(ModuleDataStorageDirectory.FullName, "module_persistence_map.xml");
 			using var store = new MemoryStream();

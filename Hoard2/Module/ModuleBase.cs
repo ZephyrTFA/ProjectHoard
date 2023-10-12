@@ -14,7 +14,7 @@ namespace Hoard2.Module
 	[SuppressMessage("Performance", "CA1822:Mark members as static")]
 	public class ModuleBase
 	{
-		string _configDirectory;
+		private string _configDirectory;
 
 		public ModuleBase(string configPath)
 		{
@@ -74,7 +74,7 @@ namespace Hoard2.Module
 
 		public virtual void OnUnload(ulong guild) { }
 
-		Dictionary<string, List<(Guid, ulong?)>> _knownMenus = new Dictionary<string, List<(Guid, ulong?)>>();
+		private Dictionary<string, List<(Guid, ulong?)>> _knownMenus = new Dictionary<string, List<(Guid, ulong?)>>();
 		public SelectMenuBuilder CreateMenu(string menuId, ulong? user = null)
 		{
 			if (!_knownMenus.ContainsKey(menuId))
@@ -121,7 +121,7 @@ namespace Hoard2.Module
 			return menuIdActual;
 		}
 
-		Dictionary<string, List<(Guid, ulong?)>> _knownButtons = new Dictionary<string, List<(Guid, ulong?)>>();
+		private Dictionary<string, List<(Guid, ulong?)>> _knownButtons = new Dictionary<string, List<(Guid, ulong?)>>();
 		public ButtonBuilder CreateButton(string buttonId, ulong? user = null)
 		{
 			if (!_knownButtons.ContainsKey(buttonId))

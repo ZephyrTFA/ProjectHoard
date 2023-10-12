@@ -9,7 +9,7 @@ namespace Hoard2.Module.Builtin.SS13
 {
 	public class SS13Monitor : ModuleBase
 	{
-		Dictionary<ulong, (Task, CancellationTokenSource)> _monitorThreads = new Dictionary<ulong, (Task, CancellationTokenSource)>();
+		private Dictionary<ulong, (Task, CancellationTokenSource)> _monitorThreads = new Dictionary<ulong, (Task, CancellationTokenSource)>();
 
 		public SS13Monitor(string configPath) : base(configPath)
 		{
@@ -27,7 +27,7 @@ namespace Hoard2.Module.Builtin.SS13
 
 		public void SetServerInfo(ulong guild, ServerInformation info) => GuildConfig(guild).Set("server-info", info);
 
-		void StartMonitorTask(ulong guild)
+		private void StartMonitorTask(ulong guild)
 		{
 			async Task DoMonitorThread(CancellationToken token)
 			{
@@ -81,7 +81,7 @@ namespace Hoard2.Module.Builtin.SS13
 			return messageActual;
 		}
 
-		async Task UpdateMonitorMessage(ulong guild, TopicResponse? statusResponse, ServerInformation info)
+		private async Task UpdateMonitorMessage(ulong guild, TopicResponse? statusResponse, ServerInformation info)
 		{
 			var message = await GetMonitorMessage(guild);
 			var builder = new EmbedBuilder()

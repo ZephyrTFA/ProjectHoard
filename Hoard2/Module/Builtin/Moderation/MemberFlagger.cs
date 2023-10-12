@@ -9,7 +9,7 @@ namespace Hoard2.Module.Builtin.Moderation
 	{
 		public MemberFlagger(string configPath) : base(configPath) { }
 
-		async Task<IMessageChannel?> GetLogChannel(ulong guild)
+		private async Task<IMessageChannel?> GetLogChannel(ulong guild)
 		{
 			var channelId = GuildConfig(guild).Get<ulong>("log-channel");
 			if (channelId == default)
@@ -17,13 +17,13 @@ namespace Hoard2.Module.Builtin.Moderation
 			return await HoardMain.DiscordClient.GetChannelAsync(channelId) as IMessageChannel;
 		}
 
-		void SetLogChannel(ulong guild, ulong channelId) => GuildConfig(guild).Set("log-channel", channelId);
+		private void SetLogChannel(ulong guild, ulong channelId) => GuildConfig(guild).Set("log-channel", channelId);
 
-		List<ulong> GetIgnoreList(ulong guild) => GuildConfig(guild).Get("ignore-list", new List<ulong>())!;
+		private List<ulong> GetIgnoreList(ulong guild) => GuildConfig(guild).Get("ignore-list", new List<ulong>())!;
 
-		void SetIgnoreList(ulong guild, List<ulong> list) => GuildConfig(guild).Set("ignore-list", list);
+		private void SetIgnoreList(ulong guild, List<ulong> list) => GuildConfig(guild).Set("ignore-list", list);
 
-		IRole? GetFlagRole(ulong guild)
+		private IRole? GetFlagRole(ulong guild)
 		{
 			var roleId = GuildConfig(guild).Get<ulong>("flag-role");
 			if (roleId == default)
@@ -31,7 +31,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			return HoardMain.DiscordClient.GetGuild(guild).GetRole(roleId);
 		}
 
-		void SetFlagRole(ulong guild, ulong roleId) => GuildConfig(guild).Set("flag-role", roleId);
+		private void SetFlagRole(ulong guild, ulong roleId) => GuildConfig(guild).Set("flag-role", roleId);
 
 		[ModuleCommand(GuildPermission.Administrator)]
 		[CommandGuildOnly]
@@ -80,7 +80,7 @@ namespace Hoard2.Module.Builtin.Moderation
 			SetIgnoreList(newUser.Guild.Id, ignoreList);
 		}
 
-		async Task ProcessGuildUser(IGuildUser user, bool forced = false)
+		private async Task ProcessGuildUser(IGuildUser user, bool forced = false)
 		{
 			if (GetIgnoreList(user.GuildId).Contains(user.Id) && !forced)
 				return;
