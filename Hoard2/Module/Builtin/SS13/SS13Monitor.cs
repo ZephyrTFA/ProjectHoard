@@ -88,7 +88,7 @@ public class SS13Monitor : ModuleBase
         timer.Interval = serverInfo.UpdatePeriod.TotalMilliseconds;
         timer.Elapsed += (_, _) => UpdateServerFunc(guild).Wait();
         timer.Start();
-        UpdateServerFunc(guild).Wait();
+        _ = UpdateServerFunc(guild);
     }
 
     public async Task<IMessageChannel> GetMonitorChannel(ulong guild)
