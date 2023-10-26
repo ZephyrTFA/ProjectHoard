@@ -54,6 +54,9 @@ public class SS13Monitor : ModuleBase
             serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
                 serverInfo.Port, CancellationToken.None);
         }
+        catch (TaskCanceledException)
+        {
+        }
         catch (Exception exception)
         {
             HoardMain.Logger.LogWarning(
