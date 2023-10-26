@@ -54,16 +54,14 @@ public class SS13Monitor : ModuleBase
             serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
                 serverInfo.Port, CancellationToken.None);
         }
-        catch (TaskCanceledException)
-        {
-        }
         catch (Exception exception)
         {
-            HoardMain.Logger.LogWarning(
-                "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
-                serverInfo.Name,
-                exception.Message
-            );
+            if (exception is not OperationCanceledException or TaskCanceledException)
+                HoardMain.Logger.LogWarning(
+                    "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
+                    serverInfo.Name,
+                    exception.Message
+                );
         }
         finally
         {
