@@ -48,19 +48,24 @@ public class SS13Monitor : ModuleBase
             SendTimeout = fiveSecondTimeSpan
         });
 
-        var sendTopicTask = client.SendTopic(
-            serverInfo.Address, $"status&key={serverInfo.CommKey}",
-            serverInfo.Port, CancellationToken.None);
+        TopicResponse? serverResponse = null;
         try
         {
-            await sendTopicTask.WaitAsync(CancellationToken.None);
+            serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
+                serverInfo.Port, CancellationToken.None);
         }
-        catch (TaskCanceledException)
+        catch (Exception exception)
         {
+            HoardMain.Logger.LogWarning(
+                "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
+                serverInfo.Name,
+                exception.Message
+            );
         }
-
-        await UpdateMonitorMessage(guild, sendTopicTask.IsCompletedSuccessfully ? sendTopicTask.Result : null,
-            serverInfo);
+        finally
+        {
+            await UpdateMonitorMessage(guild, serverResponse, serverInfo);
+        }
     }
 
     private Dictionary<ulong, Timer> _monitors = new();
