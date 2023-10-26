@@ -6,9 +6,9 @@ using Timer = System.Timers.Timer;
 
 namespace Hoard2.Module.Builtin.SS13;
 
-public class Ss13Monitor : ModuleBase
+public class SS13Monitor : ModuleBase
 {
-    public Ss13Monitor(string configPath) : base(configPath)
+    public SS13Monitor(string configPath) : base(configPath)
     {
         foreach (var guild in HoardMain.DiscordClient.Guilds)
             StartOrResetMonitor(guild.Id);

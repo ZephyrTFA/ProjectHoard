@@ -73,7 +73,7 @@ public class ModuleManager : ModuleBase
 
             case ModuleLoadResult.LoadErrored:
                 await command.SendOrModifyOriginalResponse(
-                    $"Failed to load module `{moduleID}`:\n```\n{exception}\n```");
+                    $"Failed to load module `{moduleID}`:\n```\n{exception?.Message ?? "no exception?"}\n```");
                 break;
 
             case ModuleLoadResult.LoadFailed:
