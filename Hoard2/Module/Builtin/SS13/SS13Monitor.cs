@@ -51,7 +51,14 @@ public class SS13Monitor : ModuleBase
         var sendTopicTask = client.SendTopic(
             serverInfo.Address, $"status&key={serverInfo.CommKey}",
             serverInfo.Port, CancellationToken.None);
-        await sendTopicTask.WaitAsync(CancellationToken.None);
+        try
+        {
+            await sendTopicTask.WaitAsync(CancellationToken.None);
+        }
+        catch (TaskCanceledException)
+        {
+        }
+
         await UpdateMonitorMessage(guild, sendTopicTask.IsCompletedSuccessfully ? sendTopicTask.Result : null,
             serverInfo);
     }
