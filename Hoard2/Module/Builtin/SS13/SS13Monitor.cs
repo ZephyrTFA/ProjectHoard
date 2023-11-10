@@ -39,7 +39,6 @@ public class SS13Monitor : ModuleBase
         if (!serverInfo.IsValid)
             return;
 
-        HoardMain.Logger.LogInformation("SS13-Monitor: Updating: {Guild}", guild);
         var fiveSecondTimeSpan = TimeSpan.FromSeconds(5);
         var client = new TopicClient(new SocketParameters
         {
@@ -56,7 +55,6 @@ public class SS13Monitor : ModuleBase
         {
             serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
                 serverInfo.Port, cancelToken.Token);
-            HoardMain.Logger.LogInformation("SS13-Monitor: Topic response received");
         }
         catch (Exception exception)
         {
@@ -70,7 +68,6 @@ public class SS13Monitor : ModuleBase
         finally
         {
             await UpdateMonitorMessage(guild, serverResponse, serverInfo);
-            HoardMain.Logger.LogInformation("SS13-Monitor: Message updated");
         }
     }
 
