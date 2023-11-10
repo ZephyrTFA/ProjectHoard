@@ -33,52 +33,45 @@ public class SS13Monitor : ModuleBase
         GuildConfig(guild).Set("server-info", info);
     }
 
-    private static object _lockObj = new();
-
-    private Task UpdateServerFunc(ulong guild)
+    private async Task UpdateServerFunc(ulong guild)
     {
         var serverInfo = GetServerInfo(guild);
         if (!serverInfo.IsValid)
-            return Task.CompletedTask;
+            return;
 
-        lock (_lockObj)
+        HoardMain.Logger.LogInformation("SS13-Monitor: Updating: {Guild}", guild);
+        var fiveSecondTimeSpan = TimeSpan.FromSeconds(5);
+        var client = new TopicClient(new SocketParameters
         {
-            HoardMain.Logger.LogInformation("SS13-Monitor: Updating: {Guild}", guild);
-            var fiveSecondTimeSpan = TimeSpan.FromSeconds(5);
-            var client = new TopicClient(new SocketParameters
-            {
-                ConnectTimeout = fiveSecondTimeSpan,
-                DisconnectTimeout = fiveSecondTimeSpan,
-                ReceiveTimeout = fiveSecondTimeSpan,
-                SendTimeout = fiveSecondTimeSpan
-            });
+            ConnectTimeout = fiveSecondTimeSpan,
+            DisconnectTimeout = fiveSecondTimeSpan,
+            ReceiveTimeout = fiveSecondTimeSpan,
+            SendTimeout = fiveSecondTimeSpan
+        });
 
-            TopicResponse? serverResponse = null;
-            var cancelToken = new CancellationTokenSource();
-            cancelToken.CancelAfter(fiveSecondTimeSpan);
-            try
-            {
-                serverResponse = client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
-                    serverInfo.Port, cancelToken.Token).GetAwaiter().GetResult();
-                HoardMain.Logger.LogInformation("SS13-Monitor: Topic response received");
-            }
-            catch (Exception exception)
-            {
-                if (exception is not OperationCanceledException or TaskCanceledException)
-                    HoardMain.Logger.LogWarning(
-                        "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
-                        serverInfo.Name,
-                        exception.Message
-                    );
-            }
-            finally
-            {
-                UpdateMonitorMessage(guild, serverResponse, serverInfo).Wait(default(CancellationToken));
-                HoardMain.Logger.LogInformation("SS13-Monitor: Message updated");
-            }
+        TopicResponse? serverResponse = null;
+        var cancelToken = new CancellationTokenSource();
+        cancelToken.CancelAfter(fiveSecondTimeSpan);
+        try
+        {
+            serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
+                serverInfo.Port, cancelToken.Token);
+            HoardMain.Logger.LogInformation("SS13-Monitor: Topic response received");
         }
-
-        return Task.CompletedTask;
+        catch (Exception exception)
+        {
+            if (exception is not OperationCanceledException or TaskCanceledException)
+                HoardMain.Logger.LogWarning(
+                    "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
+                    serverInfo.Name,
+                    exception.Message
+                );
+        }
+        finally
+        {
+            await UpdateMonitorMessage(guild, serverResponse, serverInfo);
+            HoardMain.Logger.LogInformation("SS13-Monitor: Message updated");
+        }
     }
 
     private Dictionary<ulong, Timer> _monitors = new();
