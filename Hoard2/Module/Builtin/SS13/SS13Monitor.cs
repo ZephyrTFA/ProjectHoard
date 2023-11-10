@@ -33,45 +33,52 @@ public class SS13Monitor : ModuleBase
         GuildConfig(guild).Set("server-info", info);
     }
 
-    private async Task UpdateServerFunc(ulong guild)
+    private static object _lockObj = new();
+
+    private Task UpdateServerFunc(ulong guild)
     {
         var serverInfo = GetServerInfo(guild);
         if (!serverInfo.IsValid)
-            return;
+            return Task.CompletedTask;
 
-        HoardMain.Logger.LogInformation("SS13-Monitor: Updating: {Guild}", guild);
-        var fiveSecondTimeSpan = TimeSpan.FromSeconds(5);
-        var client = new TopicClient(new SocketParameters
+        lock (_lockObj)
         {
-            ConnectTimeout = fiveSecondTimeSpan,
-            DisconnectTimeout = fiveSecondTimeSpan,
-            ReceiveTimeout = fiveSecondTimeSpan,
-            SendTimeout = fiveSecondTimeSpan
-        });
+            HoardMain.Logger.LogInformation("SS13-Monitor: Updating: {Guild}", guild);
+            var fiveSecondTimeSpan = TimeSpan.FromSeconds(5);
+            var client = new TopicClient(new SocketParameters
+            {
+                ConnectTimeout = fiveSecondTimeSpan,
+                DisconnectTimeout = fiveSecondTimeSpan,
+                ReceiveTimeout = fiveSecondTimeSpan,
+                SendTimeout = fiveSecondTimeSpan
+            });
 
-        TopicResponse? serverResponse = null;
-        var cancelToken = new CancellationTokenSource();
-        cancelToken.CancelAfter(fiveSecondTimeSpan);
-        try
-        {
-            serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
-                serverInfo.Port, cancelToken.Token);
-            HoardMain.Logger.LogInformation("SS13-Monitor: Topic response received");
+            TopicResponse? serverResponse = null;
+            var cancelToken = new CancellationTokenSource();
+            cancelToken.CancelAfter(fiveSecondTimeSpan);
+            try
+            {
+                serverResponse = client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
+                    serverInfo.Port, cancelToken.Token).GetAwaiter().GetResult();
+                HoardMain.Logger.LogInformation("SS13-Monitor: Topic response received");
+            }
+            catch (Exception exception)
+            {
+                if (exception is not OperationCanceledException or TaskCanceledException)
+                    HoardMain.Logger.LogWarning(
+                        "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
+                        serverInfo.Name,
+                        exception.Message
+                    );
+            }
+            finally
+            {
+                UpdateMonitorMessage(guild, serverResponse, serverInfo).Wait(default(CancellationToken));
+                HoardMain.Logger.LogInformation("SS13-Monitor: Message updated");
+            }
         }
-        catch (Exception exception)
-        {
-            if (exception is not OperationCanceledException or TaskCanceledException)
-                HoardMain.Logger.LogWarning(
-                    "SS13-Monitor: Failed to update server information for: '{Server}' due to an exception: {Exception}",
-                    serverInfo.Name,
-                    exception.Message
-                );
-        }
-        finally
-        {
-            await UpdateMonitorMessage(guild, serverResponse, serverInfo);
-            HoardMain.Logger.LogInformation("SS13-Monitor: Message updated");
-        }
+
+        return Task.CompletedTask;
     }
 
     private Dictionary<ulong, Timer> _monitors = new();
@@ -81,7 +88,8 @@ public class SS13Monitor : ModuleBase
         var serverInfo = GetServerInfo(guild);
         if (!serverInfo.IsValid)
         {
-            HoardMain.Logger.LogWarning("SS13-Monitor: Failed to start monitor thread for {Guild} due to invalid setup", guild);
+            HoardMain.Logger.LogWarning("SS13-Monitor: Failed to start monitor thread for {Guild} due to invalid setup",
+                guild);
             return;
         }
 
