@@ -49,10 +49,12 @@ public class SS13Monitor : ModuleBase
         });
 
         TopicResponse? serverResponse = null;
+        var cancelToken = new CancellationTokenSource();
+        cancelToken.CancelAfter(fiveSecondTimeSpan);
         try
         {
             serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
-                serverInfo.Port, CancellationToken.None);
+                serverInfo.Port, cancelToken.Token);
         }
         catch (Exception exception)
         {
