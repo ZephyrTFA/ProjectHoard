@@ -222,6 +222,44 @@ public class TGSLink : ModuleBase
 
     [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
+    public async Task UpdateRepo(SocketSlashCommand command, long instance = -1)
+    {
+        var serverInfo = GetServerInformation(command.GuildId!.Value);
+        if (instance is -1) instance = serverInfo.DefaultInstance;
+
+        if (await GetUserTgsClient(serverInfo.ServerUri, (IGuildUser)command.User) is not { } client)
+        {
+            await command.RespondAsync("Login first.");
+            return;
+        }
+
+        await command.DeferAsync();
+
+        var instanceClient = await GetInstanceById(client, instance);
+        var currentState = await instanceClient.Repository.Read(default);
+        var newState = new RepositoryUpdateRequest
+        {
+            UpdateFromOrigin = true,
+            Reference = currentState.Reference
+        };
+
+        var testMerges = new List<TestMergeParameters>();
+        if (currentState.RevisionInformation is { } currentRevision)
+            testMerges.AddRange((currentRevision.ActiveTestMerges ?? ArraySegment<TestMerge>.Empty).Select(existingTm =>
+                new TestMergeParameters
+                {
+                    Comment = existingTm.Comment, Number = existingTm.Number,
+                    TargetCommitSha = existingTm.TargetCommitSha
+                }));
+        newState.NewTestMerges = testMerges;
+
+        await command.SendOrModifyOriginalResponse("Updating...");
+        await instanceClient.Repository.Update(newState, default);
+        await command.SendOrModifyOriginalResponse("Updated.");
+    }
+
+    [ModuleCommand(GuildPermission.Administrator)]
+    [CommandGuildOnly]
     public async Task SetTestMergeCandidateLabel(SocketSlashCommand command, string labelName)
     {
         var serverInfo = GetServerInformation(command.GuildId!.Value);
