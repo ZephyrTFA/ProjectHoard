@@ -39,6 +39,7 @@ public class SS13Monitor : ModuleBase
         if (!serverInfo.IsValid)
             return;
 
+        HoardMain.Logger.LogInformation("SS13-Monitor: Updating: {Guild}", guild);
         var fiveSecondTimeSpan = TimeSpan.FromSeconds(5);
         var client = new TopicClient(new SocketParameters
         {
@@ -55,6 +56,7 @@ public class SS13Monitor : ModuleBase
         {
             serverResponse = await client.SendTopic(serverInfo.Address, $"status&key={serverInfo.CommKey}",
                 serverInfo.Port, cancelToken.Token);
+            HoardMain.Logger.LogInformation("SS13-Monitor: Topic response received");
         }
         catch (Exception exception)
         {
@@ -68,6 +70,7 @@ public class SS13Monitor : ModuleBase
         finally
         {
             await UpdateMonitorMessage(guild, serverResponse, serverInfo);
+            HoardMain.Logger.LogInformation("SS13-Monitor: Message updated");
         }
     }
 
@@ -77,8 +80,12 @@ public class SS13Monitor : ModuleBase
     {
         var serverInfo = GetServerInfo(guild);
         if (!serverInfo.IsValid)
+        {
+            HoardMain.Logger.LogWarning("SS13-Monitor: Failed to start monitor thread for {Guild} due to invalid setup", guild);
             return;
+        }
 
+        HoardMain.Logger.LogInformation("SS13-Monitor: Started monitor thread for {Guild}", guild);
         if (_monitors.TryGetValue(guild, out var timer))
         {
             timer.Stop();
