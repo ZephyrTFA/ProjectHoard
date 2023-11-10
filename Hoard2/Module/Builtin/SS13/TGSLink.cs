@@ -220,7 +220,7 @@ public class TGSLink : ModuleBase
             onlyMarked: markedOnly);
     }
 
-    [ModuleCommand(GuildPermission.Administrator)]
+    [ModuleCommand]
     [CommandGuildOnly]
     public async Task UpdateRepo(SocketSlashCommand command, long instance = -1)
     {
