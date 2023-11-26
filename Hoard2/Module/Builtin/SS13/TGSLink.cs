@@ -434,7 +434,7 @@ public class TGSLink : ModuleBase
         var repositoryTMs = currentState.RevisionInformation?.ActiveTestMerges ?? new List<TestMerge>();
         var githubPRs = await ghClient.PullRequest.GetAllForRepository(currentState.RemoteRepositoryOwner,
             currentState.RemoteRepositoryName);
-        var testMergeMenu = CreateMenu($"repo-tmpanel-{instanceClient.Metadata.Id}")
+        var testMergeMenu = CreateMenu($"repo-tmpanel-{instanceClient.Metadata.Id}-{user.Username}")
             .WithPlaceholder("Select Pulls to Test Merge")
             .WithType(ComponentType.SelectMenu)
             .WithMinValues(0);
@@ -609,6 +609,13 @@ public class TGSLink : ModuleBase
                 switch (action)
                 {
                     case "tmpanel":
+                        var username = data[3];
+                        if (!username.Equals(menu.User.Username))
+                        {
+                            await menu.RespondAsync("Bad User.", ephemeral: true);
+                            return;
+                        }
+
                         _ = DoTestMergePanel((null, menu.Message), (IGuildUser)menu.User, instanceClient, true);
                         await menu.RespondAsync("Updating TMs...");
 
