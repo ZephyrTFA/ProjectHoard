@@ -222,7 +222,8 @@ public class TGSLink : ModuleBase
 
     [ModuleCommand]
     [CommandGuildOnly]
-    public async Task UpdateRepo(SocketSlashCommand command, bool updateTms = false, long instance = -1)
+    public async Task UpdateRepo(SocketSlashCommand command, bool updateTms = false, bool compileWhenDone = false,
+        long instance = -1)
     {
         var serverInfo = GetServerInformation(command.GuildId!.Value);
         if (instance is -1) instance = serverInfo.DefaultInstance;
@@ -258,8 +259,24 @@ public class TGSLink : ModuleBase
         newState.NewTestMerges = testMerges;
 
         await command.SendOrModifyOriginalResponse("Updating...");
-        await instanceClient.Repository.Update(newState, default);
-        await command.SendOrModifyOriginalResponse("Updated.");
+        var response = await instanceClient.Repository.Update(newState, default);
+        if (response.ActiveJob is { } job)
+        {
+            do
+            {
+                job = await instanceClient.Jobs.GetId(new EntityId { Id = job.Id!.Value }, default);
+            } while (job.StoppedAt is null);
+
+            if (job.ExceptionDetails is not null)
+            {
+                await command.SendOrModifyOriginalResponse($"Repo Update Failed: {job.ExceptionDetails}");
+                return;
+            }
+        }
+
+        await command.SendOrModifyOriginalResponse($"Updated.{(compileWhenDone ? " Starting Compilation." : "")}");
+        if (compileWhenDone)
+            StartCompileJob(command.Channel, instanceClient);
     }
 
     [ModuleCommand(GuildPermission.Administrator)]
@@ -286,9 +303,13 @@ public class TGSLink : ModuleBase
             return;
         }
 
-        var instanceClient = await GetInstanceById(client, instance);
+        StartCompileJob(command.Channel, await GetInstanceById(client, instance));
         await command.RespondAsync("Compilation Triggered", ephemeral: true);
-        var compileTask = StartAndWaitCompile(await command.GetChannelAsync(), instanceClient).GetAwaiter();
+    }
+
+    private void StartCompileJob(IMessageChannel channel, IInstanceClient client)
+    {
+        var compileTask = StartAndWaitCompile(channel, client).GetAwaiter();
         _compileJobs.Add(compileTask);
         compileTask.OnCompleted(() => _compileJobs.Remove(compileTask));
     }
