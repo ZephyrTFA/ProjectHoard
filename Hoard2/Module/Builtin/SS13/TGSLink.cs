@@ -222,7 +222,7 @@ public class TGSLink : ModuleBase
 
     [ModuleCommand]
     [CommandGuildOnly]
-    public async Task UpdateRepo(SocketSlashCommand command, long instance = -1)
+    public async Task UpdateRepo(SocketSlashCommand command, bool updateTms = false, long instance = -1)
     {
         var serverInfo = GetServerInformation(command.GuildId!.Value);
         if (instance is -1) instance = serverInfo.DefaultInstance;
@@ -246,11 +246,15 @@ public class TGSLink : ModuleBase
         var testMerges = new List<TestMergeParameters>();
         if (currentState.RevisionInformation is { } currentRevision)
             testMerges.AddRange((currentRevision.ActiveTestMerges ?? ArraySegment<TestMerge>.Empty).Select(existingTm =>
-                new TestMergeParameters
+            {
+                var tmParams = new TestMergeParameters
                 {
                     Comment = existingTm.Comment, Number = existingTm.Number,
-                    TargetCommitSha = existingTm.TargetCommitSha
-                }));
+                };
+                if (!updateTms)
+                    tmParams.TargetCommitSha = existingTm.TargetCommitSha;
+                return tmParams;
+            }));
         newState.NewTestMerges = testMerges;
 
         await command.SendOrModifyOriginalResponse("Updating...");
