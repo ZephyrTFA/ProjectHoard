@@ -1,11 +1,11 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 using Discord;
 using Discord.WebSocket;
 using Hoard2.Util;
 using Octokit;
 using Octokit.Internal;
 using Tgstation.Server.Api.Models;
-using Tgstation.Server.Api.Models.Internal;
 using Tgstation.Server.Api.Models.Request;
 using Tgstation.Server.Api.Models.Response;
 using Tgstation.Server.Client;
@@ -267,6 +267,28 @@ public class TGSLink : ModuleBase
         await command.RespondAsync("Updated the label name.");
     }
 
+    private List<TaskAwaiter> _compileJobs = new();
+
+    [ModuleCommand]
+    [CommandGuildOnly]
+    public async Task TriggerCompile(SocketSlashCommand command, long instance = -1)
+    {
+        var serverInfo = GetServerInformation(command.GuildId!.Value);
+        if (instance is -1) instance = serverInfo.DefaultInstance;
+
+        if (await GetUserTgsClient(serverInfo.ServerUri, (IGuildUser)command.User) is not { } client)
+        {
+            await command.RespondAsync("Login first.", ephemeral: true);
+            return;
+        }
+
+        var instanceClient = await GetInstanceById(client, instance);
+        await command.RespondAsync("Compilation Triggered", ephemeral: true);
+        var compileTask = StartAndWaitCompile(await command.GetChannelAsync(), instanceClient).GetAwaiter();
+        _compileJobs.Add(compileTask);
+        compileTask.OnCompleted(() => _compileJobs.Remove(compileTask));
+    }
+
     // (user, instance) -> (channel, message)
     private Dictionary<(ulong, long), (ulong, ulong)> _daemonPanelStore = new();
     private Dictionary<(ulong, long), Timer> _daemonPanelTimeoutStore = new();
@@ -447,6 +469,46 @@ public class TGSLink : ModuleBase
         }, null, TimeSpan.FromSeconds(30), Timeout.InfiniteTimeSpan);
     }
 
+    public static async Task StartAndWaitCompile(IMessageChannel channel, IInstanceClient instanceClient)
+    {
+        var message = await channel.SendMessageAsync("Caching Compile Context...");
+        var job = await instanceClient!.DreamMaker.Compile(default);
+        var lastProgress = 0;
+        do
+        {
+            job = await instanceClient.Jobs.GetId(job, default);
+            if (job.Progress.HasValue && job.Progress.Value != lastProgress)
+            {
+                lastProgress = job.Progress.Value;
+                await message.ModifyAsync(props =>
+                    props.Content =
+                        $"Compiling:\n`{job.Stage}`\n`[{GetProgressBar(job.Progress!.Value, 10)}] {job.Progress.Value}%`");
+            }
+
+            await Task.Delay(125);
+        } while (job.StoppedAt is null);
+
+        if (job.ExceptionDetails is not null)
+            await message.ModifyAsync(props =>
+                props.Content = $"Failed to Compile: `{job.ExceptionDetails}`");
+        else
+            await message.ModifyAsync(props => props.Content = "Compilation Successful.");
+        return;
+
+        string GetProgressBar(int percentage, ushort barLength)
+        {
+            switch (percentage)
+            {
+                case >= 100: return new string('=', barLength);
+                case <= 0: return new string(' ', barLength);
+
+                default:
+                    var barsFilled = (ushort)Math.Floor(percentage * barLength / 100f);
+                    return new string('=', barsFilled) + new string(' ', barLength - barsFilled);
+            }
+        }
+    }
+
     public override async Task OnButton(string buttonId, SocketMessageComponent button)
     {
         var data = buttonId.Split('-');
@@ -462,43 +524,8 @@ public class TGSLink : ModuleBase
                 switch (data[1])
                 {
                     case "compile":
-
-                        string GetProgressBar(int percentage, ushort barLength)
-                        {
-                            switch (percentage)
-                            {
-                                case >= 100: return new string('=', barLength);
-                                case <= 0: return new string(' ', barLength);
-
-                                default:
-                                    var barsFilled = (ushort)Math.Floor(percentage * barLength / 100f);
-                                    return new string('=', barsFilled) + new string(' ', barLength - barsFilled);
-                            }
-                        }
-
-                        await button.RespondAsync("compilation started", ephemeral: true);
-                        var originalMessage = await button.Channel.SendMessageAsync("caching");
-                        var job = await instanceClient!.DreamMaker.Compile(default);
-                        var lastProgress = 0;
-                        do
-                        {
-                            job = await instanceClient.Jobs.GetId(job, default);
-                            if (job.Progress.HasValue && job.Progress.Value != lastProgress)
-                            {
-                                lastProgress = job.Progress.Value;
-                                await originalMessage.ModifyAsync(props =>
-                                    props.Content =
-                                        $"Compiling:\n`{job.Stage}`\n`[{GetProgressBar(job.Progress!.Value, 10)}] {job.Progress.Value}%`");
-                            }
-
-                            await Task.Delay(125);
-                        } while (job.StoppedAt is null);
-
-                        if (job.ExceptionDetails is not null)
-                            await originalMessage.ModifyAsync(props =>
-                                props.Content = $"Failed to Compile: `{job.ExceptionDetails}`");
-                        else
-                            await originalMessage.ModifyAsync(props => props.Content = "Compilation Successful.");
+                        var channel = (IMessageChannel)await button.GetChannelAsync();
+                        await StartAndWaitCompile(channel, instanceClient!);
                         return;
 
                     default:
