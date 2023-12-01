@@ -245,6 +245,7 @@ public class TGSLink : ModuleBase
         };
 
         var testMerges = new List<TestMergeParameters>();
+        var githubClient = new GitHubClient(new Octokit.ProductHeaderValue("TgsLink"));
         if (currentState.RevisionInformation is { } currentRevision)
             testMerges.AddRange((currentRevision.ActiveTestMerges ?? ArraySegment<TestMerge>.Empty).Select(existingTm =>
             {
@@ -255,6 +256,12 @@ public class TGSLink : ModuleBase
                 if (!updateTms)
                     tmParams.TargetCommitSha = existingTm.TargetCommitSha;
                 return tmParams;
+            }).Where(tm =>
+            {
+                var pullStatus = githubClient.Repository.PullRequest.Get(
+                    currentState.RemoteRepositoryOwner,
+                    currentState.RemoteRepositoryName, tm.Number).GetAwaiter().GetResult();
+                return pullStatus is { Merged: false };
             }));
         newState.NewTestMerges = testMerges;
 
