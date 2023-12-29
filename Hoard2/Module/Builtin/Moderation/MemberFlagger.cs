@@ -111,9 +111,6 @@ public class MemberFlagger : ModuleBase
 
         var failReasons = new List<string>();
 
-        if (forced)
-            failReasons.Add("Forced.");
-
         if (user.GetAvatarUrl() is null)
             failReasons.Add("Avatar is not set.");
 
@@ -124,6 +121,9 @@ public class MemberFlagger : ModuleBase
         var isUnlucky = Random.Shared.Next(0, 1001) == 0;
         if (isUnlucky)
             failReasons.Add("Account was determined to be unlucky.");
+
+        if (forced && !failReasons.Any())
+            failReasons.Add("Forced.");
 
         if (!failReasons.Any())
             return;
