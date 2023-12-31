@@ -58,7 +58,7 @@ public class TGSLink : ModuleBase
     private async Task<IServerClient?> GetUserTgsClient(Uri server, IGuildUser user)
     {
         if (_userClientMap.TryGetValue(user.Id, out var existingClient))
-            if (existingClient.Token.ExpiresAt.CompareTo(DateTimeOffset.Now) > 0)
+            if (existingClient.Token.ParseJwt().ValidTo.CompareTo(DateTimeOffset.Now) > 0)
                 return existingClient;
 
         var storedLoginMap =
@@ -504,7 +504,7 @@ public class TGSLink : ModuleBase
     public static async Task StartAndWaitCompile(IMessageChannel channel, IInstanceClient instanceClient)
     {
         var message = await channel.SendMessageAsync("Caching Compile Context...");
-        var job = await instanceClient!.DreamMaker.Compile(default);
+        var job = await instanceClient.DreamMaker.Compile(default);
         var lastProgress = 0;
         do
         {
