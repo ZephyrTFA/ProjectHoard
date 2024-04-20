@@ -17,6 +17,14 @@ public class RuleHandler : ModuleBase
     {
     }
 
+    public override List<Type> GetConfigKnownTypes()
+    {
+        return new List<Type>
+        {
+            typeof(RuleData), typeof(List<ulong>), typeof(List<string>),
+        };
+    }
+
     public RuleData GetRuleData(ulong guild) => GuildConfig(guild).Get("rule-data", new RuleData())!;
     public void SetRuleData(ulong guild, RuleData data) => GuildConfig(guild).Set("rule-data", data);
 
