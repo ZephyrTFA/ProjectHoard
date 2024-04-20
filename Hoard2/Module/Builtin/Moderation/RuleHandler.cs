@@ -107,4 +107,17 @@ public class RuleHandler : ModuleBase
         SetRuleData(guild.Id, ruleData);
         await command.RespondAsync("Dropped.");
     }
+
+    [ModuleCommand(GuildPermission.Administrator)]
+    [CommandGuildOnly]
+    public async Task SetRuleChannel(SocketSlashCommand command, IMessageChannel channel)
+    {
+        var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
+        var ruleData = GetRuleData(command.GuildId!.Value);
+        await DeleteRules(guild, ruleData);
+        ruleData.RuleChannel = channel.Id;
+        await SendRules(guild, ruleData);
+        SetRuleData(command.GuildId!.Value, ruleData);
+        await command.RespondAsync("Updated.");
+    }
 }
