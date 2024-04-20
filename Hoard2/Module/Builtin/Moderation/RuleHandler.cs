@@ -39,13 +39,23 @@ public class RuleHandler : ModuleBase
     public RuleData GetRuleData(ulong guild) => GuildConfig(guild).Get("rule-data", new RuleData())!;
     public void SetRuleData(ulong guild, RuleData data) => GuildConfig(guild).Set("rule-data", data);
 
-    private static async Task DeleteRules(SocketGuild guild, RuleData data)
+    private static async Task<bool> DeleteRules(SocketGuild guild, RuleData data)
     {
         if (data.RuleChannel == 0)
-            return;
-        if (await HoardMain.DiscordClient.GetChannelAsync(data.RuleChannel) is not IMessageChannel channel) return;
-        foreach (var ruleMessage in data.RuleMessages) await channel.DeleteMessageAsync(ruleMessage);
+            return false;
+        if (await HoardMain.DiscordClient.GetChannelAsync(data.RuleChannel) is not IMessageChannel channel) return false;
+        var failed = false;
+        foreach (var ruleMessage in data.RuleMessages)
+            try
+            {
+                await channel.DeleteMessageAsync(ruleMessage);
+            }
+            catch
+            {
+                failed = true;
+            }
         data.RuleMessages.Clear();
+        return failed;
     }
 
     private static async Task SendRules(SocketGuild guild, RuleData data, ulong? channelOverride = null, bool showRuleNums = false)
