@@ -57,10 +57,11 @@ public class RuleHandler : ModuleBase
             channel) return;
         data.RuleMessages.Clear();
         data.RuleMessages.Capacity = data.Rules.Count;
+        var idx = 0;
         foreach (var ruleMessage in data.Rules.Select(rule => rule.ToString()))
         {
             var ruleBuilder = new StringBuilder(ruleMessage);
-            if (showRuleNums) ruleBuilder.Insert(0, $"R-{data.RuleMessages.Count} | ");
+            if (showRuleNums) ruleBuilder.Insert(0, $"R-`{idx++}` | ");
             var messageId = (await channel.SendMessageAsync(ruleBuilder.ToString())).Id;
             if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
             data.RuleMessages.Add(messageId);
