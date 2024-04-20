@@ -55,12 +55,13 @@ public class RuleHandler : ModuleBase
             return;
         if (await HoardMain.DiscordClient.GetChannelAsync(channelOverride ?? data.RuleChannel) is not IMessageChannel
             channel) return;
+        data.RuleMessages.Clear();
         data.RuleMessages.Capacity = data.Rules.Count;
-        for (var ruleIdx = 0; ruleIdx < data.Rules.Count; ruleIdx++)
+        foreach (var rule in data.Rules)
         {
-            var messageId = (await channel.SendMessageAsync(data.Rules[ruleIdx].ToString())).Id;
+            var messageId = (await channel.SendMessageAsync(rule.ToString())).Id;
             if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
-            data.RuleMessages[ruleIdx] = messageId;
+            data.RuleMessages.Add(messageId);
         }
     }
 
