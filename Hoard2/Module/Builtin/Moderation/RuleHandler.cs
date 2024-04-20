@@ -81,10 +81,10 @@ public class RuleHandler : ModuleBase
     [CommandGuildOnly]
     public async Task DeleteRuleMessages(SocketSlashCommand command)
     {
+        await command.RespondAsync("Deleting...");
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
         await DeleteRules(guild, ruleData);
-        await command.RespondAsync("Deleted the rule messages.");
     }
 
     [ModuleCommand(GuildPermission.Administrator)]
