@@ -61,7 +61,7 @@ public class RuleHandler : ModuleBase
         {
             var ruleBuilder = new StringBuilder(ruleMessage);
             if (showRuleNums) ruleBuilder.Insert(0, $"R-{data.RuleMessages.Count} | ");
-            var messageId = (await channel.SendMessageAsync(ruleMessage)).Id;
+            var messageId = (await channel.SendMessageAsync(ruleBuilder.ToString())).Id;
             if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
             data.RuleMessages.Add(messageId);
         }
