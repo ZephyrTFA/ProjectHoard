@@ -48,7 +48,7 @@ public class RuleHandler : ModuleBase
         data.RuleMessages.Clear();
     }
 
-    private static async Task SendRules(SocketGuild guild, RuleData data, ulong? channelOverride = null)
+    private static async Task SendRules(SocketGuild guild, RuleData data, ulong? channelOverride = null, bool showRuleNums = false)
     {
         var channelUse = channelOverride ?? data.RuleChannel;
         if (channelUse == 0)
@@ -57,9 +57,11 @@ public class RuleHandler : ModuleBase
             channel) return;
         data.RuleMessages.Clear();
         data.RuleMessages.Capacity = data.Rules.Count;
-        foreach (var rule in data.Rules)
+        foreach (var ruleMessage in data.Rules.Select(rule => rule.ToString()))
         {
-            var messageId = (await channel.SendMessageAsync(rule.ToString())).Id;
+            var ruleBuilder = new StringBuilder(ruleMessage);
+            if (showRuleNums) ruleBuilder.Insert(0, $"R-{data.RuleMessages.Count} | ");
+            var messageId = (await channel.SendMessageAsync(ruleMessage)).Id;
             if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
             data.RuleMessages.Add(messageId);
         }
@@ -93,9 +95,11 @@ public class RuleHandler : ModuleBase
     public async Task ShowRules(SocketSlashCommand command)
     {
         await command.RespondAsync("Sending...");
+
+        await command.Channel.SendMessageAsync("`R-##` only shows here. Will not be shown in a actual rule messages.");
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
-        await SendRules(guild, ruleData, command.ChannelId!.Value);
+        await SendRules(guild, ruleData, command.ChannelId!.Value, true);
     }
 
     [ModuleCommand(GuildPermission.Administrator)]
