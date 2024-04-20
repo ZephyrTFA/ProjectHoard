@@ -82,7 +82,7 @@ public class RuleHandler : ModuleBase
 
     [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
-    public async Task SetRule(SocketSlashCommand command, int ruleNumber, string ruleText)
+    public async Task SetRule(SocketSlashCommand command, int ruleNumber, string ruleText, bool overrideRule = true)
     {
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
@@ -90,6 +90,8 @@ public class RuleHandler : ModuleBase
         if (ruleNumber > ruleData.Rules.Count)
             ruleData.Rules.Capacity = ruleNumber + 1;
 
+        if(overrideRule)
+            ruleData.Rules.RemoveAt(ruleNumber);
         ruleData.Rules.Insert(ruleNumber, ruleText);
         SetRuleData(guild.Id, ruleData);
         await command.RespondAsync("Updated.");
