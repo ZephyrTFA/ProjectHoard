@@ -85,6 +85,7 @@ public class RuleHandler : ModuleBase
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
         await DeleteRules(guild, ruleData);
+        SetRuleData(guild.Id, ruleData);
     }
 
     [ModuleCommand(GuildPermission.Administrator)]
