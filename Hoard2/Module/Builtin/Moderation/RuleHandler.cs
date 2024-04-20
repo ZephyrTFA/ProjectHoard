@@ -6,9 +6,9 @@ namespace Hoard2.Module.Builtin.Moderation;
 public class RuleData
 {
     public ulong GuildId { get; set; } = 0;
-    public string[] Rules { get; set; } = Array.Empty<string>();
+    public List<string> Rules { get; set; } = new();
     public ulong RuleChannel { get; set; } = 0;
-    public ulong[] RuleMessages { get; set; } = Array.Empty<ulong>();
+    public List<ulong> RuleMessages { get; set; } = new();
 }
 
 public class RuleHandler : ModuleBase
@@ -24,16 +24,15 @@ public class RuleHandler : ModuleBase
     {
         if (await HoardMain.DiscordClient.GetChannelAsync(data.RuleChannel) is not IMessageChannel channel) return;
         foreach (var ruleMessage in data.RuleMessages) await channel.DeleteMessageAsync(ruleMessage);
-        Array.Clear(data.RuleMessages);
+        data.RuleMessages.Clear();
     }
 
     private static async Task SendRules(SocketGuild guild, RuleData data, ulong? channelOverride = null)
     {
         if (await HoardMain.DiscordClient.GetChannelAsync(channelOverride ?? data.RuleChannel) is not IMessageChannel
             channel) return;
-        var ruleMessages = data.RuleMessages;
-        Array.Resize(ref ruleMessages, data.Rules.Length);
-        for (var ruleIdx = 0; ruleIdx < data.Rules.Length; ruleIdx++)
+        data.RuleMessages.Capacity = data.Rules.Count;
+        for (var ruleIdx = 0; ruleIdx < data.Rules.Count; ruleIdx++)
         {
             var messageId = (await channel.SendMessageAsync(data.Rules[ruleIdx])).Id;
             if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
@@ -79,12 +78,11 @@ public class RuleHandler : ModuleBase
     {
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
-        var rules = ruleData.Rules;
 
-        if (ruleNumber > ruleData.Rules.Length)
-            Array.Resize(ref rules, ruleNumber + 1);
+        if (ruleNumber > ruleData.Rules.Count)
+            ruleData.Rules.Capacity = ruleNumber + 1;
 
-        rules[ruleNumber] = ruleText;
+        ruleData.Rules[ruleNumber] = ruleText;
         SetRuleData(guild.Id, ruleData);
         await command.RespondAsync("Updated.");
     }
@@ -95,8 +93,7 @@ public class RuleHandler : ModuleBase
     {
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
-        var rules = ruleData.Rules;
-        Array.ConstrainedCopy(rules, ruleNumber + 1, rules, ruleNumber, rules.Length - ruleNumber + 1);
+        ruleData.Rules.RemoveAt(ruleNumber);
         SetRuleData(guild.Id, ruleData);
         await command.RespondAsync("Dropped.");
     }
