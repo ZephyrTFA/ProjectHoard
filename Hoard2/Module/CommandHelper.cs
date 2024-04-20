@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using System.Reflection;
+using Discord;
 using Discord.WebSocket;
 using Hoard2.Util;
 
@@ -120,7 +121,10 @@ public static class CommandHelper
             var paramIdx = commandMap.Parameters.FindIndex(mapParam => mapParam.Name.Equals(param.Name));
             if (paramIdx == -1)
                 throw new Exception($"Failed to map param {param} for {commandMap.Name}");
-            paramArray[paramIdx + 1] = Convert.ChangeType(param.Value, commandMap.Parameters[paramIdx].MethodCommandType);
+            var paramObject = param.Value;
+            if (paramObject is IConvertible)
+                paramObject = Convert.ChangeType(param.Value, commandMap.Parameters[paramIdx].MethodCommandType);
+            paramArray[paramIdx + 1] = paramObject;
         }
 
         for (var i = 1; i < paramArray.Length; i++)
