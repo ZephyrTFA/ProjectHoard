@@ -1,14 +1,25 @@
-﻿using Discord;
+﻿using System.Text;
+using Discord;
 using Discord.WebSocket;
 
 namespace Hoard2.Module.Builtin.Moderation;
 
 public class RuleData
 {
-    public ulong GuildId { get; set; } = 0;
-    public List<string> Rules { get; set; } = new();
-    public ulong RuleChannel { get; set; } = 0;
+    public List<Rule> Rules { get; set; } = new();
+    public ulong RuleChannel { get; set; }
     public List<ulong> RuleMessages { get; set; } = new();
+}
+
+public class Rule
+{
+    public string RuleText = string.Empty;
+    public string RuleHeader = string.Empty;
+
+    public override string ToString()
+    {
+        return $"{RuleHeader}\n\n{RuleText}";
+    }
 }
 
 public class RuleHandler : ModuleBase
@@ -21,7 +32,7 @@ public class RuleHandler : ModuleBase
     {
         return new List<Type>
         {
-            typeof(RuleData), typeof(List<ulong>), typeof(List<string>),
+            typeof(RuleData), typeof(List<ulong>), typeof(List<Rule>), typeof(Rule),
         };
     }
 
@@ -42,7 +53,7 @@ public class RuleHandler : ModuleBase
         data.RuleMessages.Capacity = data.Rules.Count;
         for (var ruleIdx = 0; ruleIdx < data.Rules.Count; ruleIdx++)
         {
-            var messageId = (await channel.SendMessageAsync(data.Rules[ruleIdx])).Id;
+            var messageId = (await channel.SendMessageAsync(data.Rules[ruleIdx].ToString())).Id;
             if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
             data.RuleMessages[ruleIdx] = messageId;
         }
@@ -82,7 +93,8 @@ public class RuleHandler : ModuleBase
 
     [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
-    public async Task SetRule(SocketSlashCommand command, int ruleNumber, string ruleText, bool overrideRule = true)
+    public async Task SetRule(SocketSlashCommand command, int ruleNumber, string ruleHeader, string ruleText,
+        bool overrideRule = true)
     {
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
         var ruleData = GetRuleData(guild.Id);
@@ -90,9 +102,13 @@ public class RuleHandler : ModuleBase
         if (ruleNumber > ruleData.Rules.Count)
             ruleData.Rules.Capacity = ruleNumber + 1;
 
-        if(overrideRule)
+        if (overrideRule)
             ruleData.Rules.RemoveAt(ruleNumber);
-        ruleData.Rules.Insert(ruleNumber, ruleText);
+        ruleData.Rules.Insert(ruleNumber, new Rule
+        {
+            RuleText = ruleText,
+            RuleHeader = ruleHeader,
+        });
         SetRuleData(guild.Id, ruleData);
         await command.RespondAsync("Updated.");
     }
