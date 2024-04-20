@@ -90,7 +90,7 @@ public class RuleHandler : ModuleBase
         if (ruleNumber > ruleData.Rules.Count)
             ruleData.Rules.Capacity = ruleNumber + 1;
 
-        ruleData.Rules[ruleNumber] = ruleText;
+        ruleData.Rules.Insert(ruleNumber, ruleText);
         SetRuleData(guild.Id, ruleData);
         await command.RespondAsync("Updated.");
     }
