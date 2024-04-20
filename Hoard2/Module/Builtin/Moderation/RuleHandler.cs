@@ -29,18 +29,19 @@ public class RuleHandler : ModuleBase
 
     private static async Task SendRules(SocketGuild guild, RuleData data, ulong? channelOverride = null)
     {
-        if (await HoardMain.DiscordClient.GetChannelAsync(channelOverride ?? data.RuleChannel) is not IMessageChannel channel) return;
+        if (await HoardMain.DiscordClient.GetChannelAsync(channelOverride ?? data.RuleChannel) is not IMessageChannel
+            channel) return;
         var ruleMessages = data.RuleMessages;
         Array.Resize(ref ruleMessages, data.Rules.Length);
         for (var ruleIdx = 0; ruleIdx < data.Rules.Length; ruleIdx++)
         {
-            var messageId =  (await channel.SendMessageAsync(data.Rules[ruleIdx])).Id;
-            if(channelOverride is not null) continue; // if we are passed an override channel, dont update locations
+            var messageId = (await channel.SendMessageAsync(data.Rules[ruleIdx])).Id;
+            if (channelOverride is not null) continue; // if we are passed an override channel, dont update locations
             data.RuleMessages[ruleIdx] = messageId;
         }
     }
 
-    [ModuleCommand]
+    [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
     public async Task UpdateRules(SocketSlashCommand command)
     {
@@ -52,7 +53,7 @@ public class RuleHandler : ModuleBase
         await command.RespondAsync("Updated the rules.", ephemeral: true);
     }
 
-    [ModuleCommand]
+    [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
     public async Task DeleteRuleMessages(SocketSlashCommand command)
     {
@@ -62,7 +63,7 @@ public class RuleHandler : ModuleBase
         await command.RespondAsync("Deleted the rule messages.");
     }
 
-    [ModuleCommand]
+    [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
     public async Task ShowRules(SocketSlashCommand command)
     {
@@ -72,7 +73,7 @@ public class RuleHandler : ModuleBase
         await command.RespondAsync("Sent.");
     }
 
-    [ModuleCommand]
+    [ModuleCommand(GuildPermission.Administrator)]
     [CommandGuildOnly]
     public async Task SetRule(SocketSlashCommand command, int ruleNumber, string ruleText)
     {
@@ -88,6 +89,8 @@ public class RuleHandler : ModuleBase
         await command.RespondAsync("Updated.");
     }
 
+    [ModuleCommand(GuildPermission.Administrator)]
+    [CommandGuildOnly]
     public async Task DropRule(SocketSlashCommand command, int ruleNumber)
     {
         var guild = HoardMain.DiscordClient.GetGuild(command.GuildId!.Value)!;
