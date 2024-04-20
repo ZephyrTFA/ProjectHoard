@@ -13,14 +13,14 @@ public class ParameterInformation
 
     public readonly string Name;
     public readonly bool Required;
-    public readonly ApplicationCommandOptionType Type;
+    public readonly Type MethodCommandType;
 
-    public ParameterInformation(string name, string desc, ApplicationCommandOptionType type, object? @default,
+    public ParameterInformation(string name, string desc, Type methodCommandType, object? @default,
         bool required)
     {
         Name = name;
         Desc = desc;
-        Type = type;
+        MethodCommandType = methodCommandType;
         Default = @default;
         Required = required;
     }
@@ -29,7 +29,7 @@ public class ParameterInformation
     {
         var builder = new SlashCommandOptionBuilder()
             .WithName(Name)
-            .WithType(Type)
+            .WithType(MethodCommandType.ToDiscordCommandType())
             .WithRequired(Default is null or DBNull && Required)
             .WithDescription(Desc);
         return builder;
@@ -45,7 +45,7 @@ public class ParameterInformation
         return new ParameterInformation(
             name,
             desc,
-            parameterInfo.ParameterType.ToDiscordCommandType(),
+            parameterInfo.ParameterType,
             parameterInfo.DefaultValue,
             !parameterInfo.Attributes.HasFlag(ParameterAttributes.Optional)
         );

@@ -120,7 +120,7 @@ public static class CommandHelper
             var paramIdx = commandMap.Parameters.FindIndex(mapParam => mapParam.Name.Equals(param.Name));
             if (paramIdx == -1)
                 throw new Exception($"Failed to map param {param} for {commandMap.Name}");
-            paramArray[paramIdx + 1] = param.Value;
+            paramArray[paramIdx + 1] = Convert.ChangeType(param.Value, commandMap.Parameters[paramIdx].MethodCommandType);
         }
 
         for (var i = 1; i < paramArray.Length; i++)
