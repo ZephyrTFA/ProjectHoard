@@ -101,9 +101,9 @@ public class RuleHandler : ModuleBase
 
         if (ruleNumber > ruleData.Rules.Count)
             ruleData.Rules.Capacity = ruleNumber + 1;
-
-        if (overrideRule)
+        else if (overrideRule) // if we had to expand the list, there isnt a rule to override
             ruleData.Rules.RemoveAt(ruleNumber);
+
         ruleData.Rules.Insert(ruleNumber, new Rule
         {
             RuleText = ruleText,
